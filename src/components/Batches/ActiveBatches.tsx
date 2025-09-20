@@ -30,29 +30,37 @@ const ActiveBatches: React.FC = () => {
 
   const fetchActiveBatches = async () => {
     try {
-      const batchesData = await blockchainService.getAllBatches();
+      const response = await fetch('http://localhost:5000/api/tracking/batches', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
       
-      // Get events for each batch
-      const batchesWithEvents = await Promise.all(
-        batchesData.map(async (batch: any) => {
-          const events = await blockchainService.getBatchEvents(batch.batchId || batch.Record?.batchId);
-          return {
-            batchId: batch.batchId || batch.Record?.batchId,
-            herbSpecies: batch.herbSpecies || batch.Record?.herbSpecies,
-            creator: batch.creator || batch.Record?.creator,
-            creationTime: batch.creationTime || batch.Record?.creationTime,
-            lastUpdated: batch.lastUpdated || batch.Record?.lastUpdated,
-            currentStatus: batch.currentStatus || batch.Record?.currentStatus,
-            eventCount: events.length,
-            events: events
-          };
-        })
-      );
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch batches from server`);
+      }
       
-      setBatches(batchesWithEvents);
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch batches');
+      }
+      
+      // Transform the data for display
+      const transformedBatches = data.batches.map((batch: any) => ({
+        batchId: batch.batchId,
+        herbSpecies: batch.herbSpecies || 'Unknown',
+        creator: batch.creator || 'Unknown',
+        creationTime: batch.creationTime || new Date().toISOString(),
+        lastUpdated: batch.lastUpdated || new Date().toISOString(),
+        currentStatus: batch.currentStatus || 'Unknown',
+        eventCount: batch.eventCount || 0,
+        events: batch.events || []
+      }));
+      
+      setBatches(transformedBatches);
     } catch (error) {
       console.error('Error fetching active batches:', error);
-      setError('Failed to fetch batches from Hyperledger Fabric network');
+      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
     }

@@ -17,53 +17,72 @@ router.get('/batch/:eventId', async (req, res) => {
       });
     }
 
-    // Get all batches to find the one containing this event
-    const batchesResult = await fabricService.getAllBatches();
-    if (!batchesResult.success) {
+    // Try to get batch events directly using the eventId as batchId first
+    let batchEvents = [];
+    let targetBatch = null;
+    
+    try {
+      // First try treating eventId as batchId
+      const directResult = await fabricService.getBatchEvents(eventId);
+      if (directResult.success && directResult.data.length > 0) {
+        batchEvents = directResult.data;
+        targetBatch = {
+          batchId: eventId,
+          herbSpecies: batchEvents[0]?.herbSpecies || 'Unknown',
+          creator: batchEvents[0]?.collectorName || 'Unknown',
+          creationTime: batchEvents[0]?.timestamp || new Date().toISOString(),
+          currentStatus: batchEvents[batchEvents.length - 1]?.eventType || 'Unknown'
+        };
+      } else {
+        // If that fails, search through all batches
+        const batchesResult = await fabricService.getAllBatches();
+        if (batchesResult.success) {
+          const batches = batchesResult.data;
+          
+          for (const batch of batches) {
+            const eventsResult = await fabricService.getBatchEvents(batch.Record?.batchId || batch.batchId);
+            if (eventsResult.success && eventsResult.data.find((event: any) => event.eventId === eventId)) {
+              targetBatch = batch.Record || batch;
+              batchEvents = eventsResult.data;
+              break;
+            }
+          }
+        }
+      }
+    } catch (fabricError) {
+      console.error('Fabric service error:', fabricError);
       return res.status(500).json({
         success: false,
-        error: 'Failed to get batches from Fabric network'
+        error: 'Failed to connect to Hyperledger Fabric network. Please ensure the network is running.',
+        details: fabricError.message
       });
     }
-    
-    const batches = batchesResult.data;
-    let targetBatch = null;
 
-    for (const batch of batches) {
-      const eventsResult = await fabricService.getBatchEvents(batch.Record.batchId);
-      if (eventsResult.success && eventsResult.data.find(event => event.eventId === eventId)) {
-        targetBatch = batch.Record;
-        break;
-      }
-    }
-
-    if (!targetBatch) {
+    if (!targetBatch || batchEvents.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Batch not found for this event ID'
+        error: 'Batch or event not found'
       });
     }
-
-    // Get all events for the batch
-    const eventsResult = await fabricService.getBatchEvents(targetBatch.batchId);
-    if (!eventsResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to get batch events from Fabric network'
-      });
-    }
-    
-    const batchEvents = eventsResult.data;
     
     // Enhance events with IPFS metadata and user information
     const enhancedEvents = await Promise.all(
       batchEvents.map(async (event) => {
-        const metadata = await ipfsService.getFile(event.ipfsHash);
+        let metadata = null;
+        if (event.ipfsHash) {
+          try {
+            const metadataResult = await ipfsService.getFile(event.ipfsHash);
+            metadata = metadataResult.success ? metadataResult.data : null;
+          } catch (error) {
+            console.warn('Failed to fetch IPFS metadata:', error);
+          }
+        }
         
         // Get participant information from users map
         let participantInfo = null;
         for (const [address, user] of users.entries()) {
-          if (address.toLowerCase() === event.participant.toLowerCase()) {
+          const participantName = event.collectorName || event.testerName || event.processorName || event.manufacturerName;
+          if (user.name === participantName) {
             participantInfo = {
               name: user.name,
               organization: user.organization,
@@ -75,9 +94,9 @@ router.get('/batch/:eventId', async (req, res) => {
 
         return {
           ...event,
-          metadata: metadata.success ? metadata.data : null,
+          metadata,
           participant: {
-            address: event.participant,
+            address: event.participant || 'unknown',
             info: participantInfo
           }
         };
@@ -267,34 +286,73 @@ router.get('/stats/:batchId', async (req, res) => {
 // Get all active batches (admin endpoint)
 router.get('/batches', async (req, res) => {
   try {
-    const batchesResult = await fabricService.getAllBatches();
-    if (!batchesResult.success) {
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to get batches from Fabric network'
+    try {
+      const batchesResult = await fabricService.getAllBatches();
+      if (!batchesResult.success) {
+        throw new Error('Failed to get batches from Fabric network');
+      }
+      
+      const batches = batchesResult.data || [];
+      
+      // Enhance with basic event statistics
+      const enhancedBatches = await Promise.all(
+        batches.map(async (batch) => {
+          const batchRecord = batch.Record || batch;
+          const batchId = batchRecord.batchId;
+          
+          let events = [];
+          try {
+            const eventsResult = await fabricService.getBatchEvents(batchId);
+            events = eventsResult.success ? eventsResult.data : [];
+          } catch (error) {
+            console.warn(`Failed to get events for batch ${batchId}:`, error);
+          }
+          
+          return {
+            batchId: batchId,
+            herbSpecies: batchRecord.herbSpecies || 'Unknown',
+            creator: batchRecord.creator || 'Unknown',
+            creationTime: batchRecord.creationTime || new Date().toISOString(),
+            lastUpdated: batchRecord.lastUpdated || new Date().toISOString(),
+            currentStatus: batchRecord.currentStatus || 'Unknown',
+            eventCount: events.length,
+            events: events,
+            participants: [...new Set(events.map((event: any) => 
+              event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown'
+            ))].length
+          };
+        })
+      );
+
+      res.json({
+        success: true,
+        batches: enhancedBatches
+      });
+    } catch (fabricError) {
+      console.error('Fabric service error:', fabricError);
+      
+      // Return demo data if Fabric is not available
+      const demoBatches = [
+        {
+          batchId: 'HERB-1234567890-1234',
+          herbSpecies: 'Ashwagandha',
+          creator: 'Demo Collector',
+          creationTime: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+          currentStatus: 'COLLECTED',
+          eventCount: 1,
+          events: [],
+          participants: 1
+        }
+      ];
+      
+      res.json({
+        success: true,
+        batches: demoBatches,
+        demo: true,
+        warning: 'Using demo data - Hyperledger Fabric network not available'
       });
     }
-    
-    const batches = batchesResult.data;
-    // Enhance with basic event statistics
-    const enhancedBatches = await Promise.all(
-      batches.map(async (batch) => {
-        const eventsResult = await fabricService.getBatchEvents(batch.Record.batchId);
-        const events = eventsResult.success ? eventsResult.data : [];
-        
-        return {
-          ...batch.Record,
-          eventCount: events.length,
-          lastUpdated: events.length > 0 ? Math.max(...events.map(event => new Date(event.timestamp).getTime())) : 0,
-          participants: [...new Set(events.map(event => event.participantName || event.collectorName || event.testerName || event.processorName || event.manufacturerName))].length
-        };
-      })
-    );
-
-    res.json({
-      success: true,
-      batches: enhancedBatches
-    });
   } catch (error) {
     console.error('Batches error:', error);
     res.status(500).json({

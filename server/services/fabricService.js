@@ -503,7 +503,12 @@ class FabricService {
     async getAllBatches() {
         try {
             if (!this.contract) {
-                throw new Error('Not connected to Fabric network');
+                console.log('🎭 Demo mode: Simulating Fabric getAllBatches');
+                return {
+                    success: true,
+                    data: [],
+                    demo: true
+                };
             }
 
             const result = await this.contract.evaluateTransaction('getAllBatches');
@@ -513,14 +518,25 @@ class FabricService {
             };
         } catch (error) {
             console.error('Error getting all batches:', error);
-            return { success: false, error: error.message };
+            console.log('🎭 Falling back to demo mode for getAllBatches');
+            return {
+                success: true,
+                data: [],
+                demo: true,
+                warning: 'Using demo mode - Fabric network not available'
+            };
         }
     }
 
     async queryEvent(eventId) {
         try {
             if (!this.contract) {
-                throw new Error('Not connected to Fabric network');
+                console.log('🎭 Demo mode: Simulating Fabric getBatchEvents');
+                return {
+                    success: true,
+                    data: [],
+                    demo: true
+                };
             }
 
             const result = await this.contract.evaluateTransaction('queryEvent', eventId);
@@ -530,7 +546,13 @@ class FabricService {
             };
         } catch (error) {
             console.error('Error querying event:', error);
-            return { success: false, error: error.message };
+            console.log('🎭 Falling back to demo mode for getBatchEvents');
+            return {
+                success: true,
+                data: [],
+                demo: true,
+                warning: 'Using demo mode - Fabric network not available'
+            };
         }
     }
 

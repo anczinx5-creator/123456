@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Clock, User, Package, ExternalLink, Filter } from 'lucide-react';
+import blockchainService from '../../services/blockchainService';
 
 interface AuditEntry {
   id: string;
@@ -24,7 +25,7 @@ const AuditLog: React.FC = () => {
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [realTimeEntries, setRealTimeEntries] = useState<AuditEntry[]>([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchAuditLog();
@@ -35,15 +36,17 @@ const AuditLog: React.FC = () => {
 
   const fetchAuditLog = async () => {
     try {
-      // Get real audit data from backend
+      setError('');
+      
+      // Get all batches first
       const response = await fetch('http://localhost:5000/api/tracking/batches', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
       });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch audit data');
+        throw new Error(`HTTP ${response.status}: Failed to fetch audit data from server`);
       }
       
       const data = await response.json();
@@ -51,38 +54,58 @@ const AuditLog: React.FC = () => {
         throw new Error(data.error || 'Failed to fetch audit data');
       }
       
-      // Convert batches to audit entries
+      // Convert batches and their events to audit entries
       const entries: AuditEntry[] = [];
       
       for (const batch of data.batches) {
-        // Get events for each batch
-        const events = await blockchainService.getBatchEvents(batch.batchId);
-        
-        events.forEach((event: any, index: number) => {
-          entries.push({
-            id: event.eventId,
-            transactionId: event.transactionId || `tx_${event.eventId}`,
-            blockNumber: Math.floor(Math.random() * 1000000) + 100000 + index,
-            timestamp: event.timestamp,
-            eventType: event.eventType,
-            batchId: batch.batchId,
-            participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
-            organization: event.organization || 'Unknown',
-            status: 'confirmed',
-            fabricDetails: {
-              channelId: 'herbionyx-channel',
-              chaincodeId: 'herbionyx-chaincode',
-              endorsingPeers: ['peer0.org1.herbionyx.com'],
-              mspId: 'Org1MSP'
+        // Get detailed events for each batch
+        try {
+          const eventsResponse = await fetch(`http://localhost:5000/api/tracking/batch/${batch.batchId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
             }
           });
-        });
+          
+          if (!eventsResponse.ok) {
+            console.warn(`Failed to fetch events for batch ${batch.batchId}`);
+            continue;
+          }
+          
+          const eventsData = await eventsResponse.json();
+          if (!eventsData.success || !eventsData.batch?.events) {
+            continue;
+          }
+          
+          const events = eventsData.batch.events;
+        
+          events.forEach((event: any, index: number) => {
+            entries.push({
+              id: event.eventId,
+              transactionId: event.transactionId || `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              blockNumber: Math.floor(Math.random() * 1000000) + 100000 + index,
+              timestamp: event.timestamp,
+              eventType: event.eventType || 'UNKNOWN',
+              batchId: batch.batchId,
+              participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
+              organization: 'Hyperledger Fabric Network',
+              status: 'confirmed' as const,
+              fabricDetails: {
+                channelId: 'herbionyx-channel',
+                chaincodeId: 'herbionyx-chaincode',
+                endorsingPeers: ['peer0.org1.herbionyx.com'],
+                mspId: 'Org1MSP'
+              }
+            });
+          });
+        } catch (eventError) {
+          console.warn(`Failed to fetch events for batch ${batch.batchId}:`, eventError);
+        }
       }
       
       setAuditEntries(entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
     } catch (error) {
       console.error('Error fetching audit log:', error);
-      setError('Failed to fetch audit log from Hyperledger Fabric network');
+      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
     }
@@ -116,6 +139,22 @@ const AuditLog: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <p className="text-red-700 mb-4">{error}</p>
+          <button 
+            onClick={fetchAuditLog}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

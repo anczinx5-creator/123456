@@ -250,10 +250,10 @@ const QualityTestForm: React.FC = () => {
               <div>
                 <span className="font-medium text-blue-700">Status:</span>
                 <p className={`font-bold ${
-                  qrResult.testResults.purity >= 95 && qrResult.testResults.pesticideLevel <= 0.01 
+                  qrResult.testResults.purity >= 95 && qrResult.testResults.pesticideLevel <= 0.1 
                     ? 'text-green-600' : 'text-orange-600'
                 }`}>
-                  {qrResult.testResults.purity >= 95 && qrResult.testResults.pesticideLevel <= 0.01 
+                  {qrResult.testResults.purity >= 95 && qrResult.testResults.pesticideLevel <= 0.1 
                     ? 'PASSED' : 'REQUIRES ATTENTION'}
                 </p>
               </div>

@@ -19,46 +19,54 @@ const BatchTracker: React.FC = () => {
     setTrackingResult(null);
 
     try {
-      // Try to get batch events from Hyperledger Fabric
-      const events = await blockchainService.getBatchEvents(searchQuery);
+      // Try to get batch data from backend API
+      const response = await fetch(`http://localhost:5000/api/tracking/batch/${searchQuery}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Batch not found. Please check the Batch ID or Event ID.');
+        } else {
+          setError(`Server error: ${response.status}. Please ensure the Hyperledger Fabric backend is running.`);
+        }
+        return;
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        setError(data.error || 'Failed to fetch batch data');
+        return;
+      }
+      
+      const batch = data.batch;
+      const events = batch.events || [];
       
       if (events.length === 0) {
-        setError('Batch not found or no events recorded');
+        setError('No events found for this batch');
         return;
       }
 
-      // Get batch info from first event
-      const firstEvent = events[0];
-      const lastEvent = events[events.length - 1];
-      
-      // Determine current status based on last event
-      const getStatusFromEventType = (eventType: string) => {
-        switch (eventType) {
-          case 'COLLECTION': return 'Collected';
-          case 'QUALITY_TEST': return 'Quality Tested';
-          case 'PROCESSING': return 'Processed';
-          case 'MANUFACTURING': return 'Manufacturing Complete';
-          default: return 'In Progress';
-        }
-      };
-
+      // Transform the data for display
       setTrackingResult({
-        batchId: searchQuery,
-        herbSpecies: firstEvent.herbSpecies || 'Unknown',
-        currentStatus: getStatusFromEventType(lastEvent.eventType),
-        events: events.map(event => ({
+        batchId: batch.batchId,
+        herbSpecies: batch.herbSpecies || 'Unknown',
+        currentStatus: batch.currentStatus || 'Unknown',
+        events: events.map((event: any) => ({
           eventId: event.eventId,
-          type: event.eventType.replace('_', ' '),
+          type: event.eventType?.replace('_', ' ') || 'Unknown',
           participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
-          organization: event.organization || 'Unknown',
+          organization: 'Unknown',
           timestamp: new Date(event.timestamp).getTime(),
           location: event.location?.zone || event.location?.address || 'Unknown',
-          details: this.extractEventDetails(event)
+          details: extractEventDetails(event)
         }))
       });
     } catch (error) {
       console.error('Tracking error:', error);
-      setError((error as Error).message);
+      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
     } finally {
       setLoading(false);
     }
