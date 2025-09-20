@@ -1,0 +1,21 @@
+{
+  "name": "herbionyx-chaincode",
+  "version": "1.0.0",
+  "description": "HerbionYX Ayurvedic Herb Traceability Chaincode",
+  "main": "index.js",
+  "scripts": {
+    "start": "fabric-chaincode-node start",
+    "test": "mocha test --recursive"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.5.8",
+    "fabric-shim": "^2.5.8"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
