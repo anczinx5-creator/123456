@@ -227,21 +227,37 @@ function createChannel() {
   fi
   
   # Create the channel
-  docker exec cli peer channel create \
-    -o orderer.herbionyx.com:7050 \
-    -c $CHANNEL_NAME \
-    --ordererTLSHostnameOverride orderer.herbionyx.com \
-    -f ./channel-artifacts/${CHANNEL_NAME}.tx \
-    --outputBlock ./channel-artifacts/${CHANNEL_NAME}.block \
-    --tls \
-    --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/herbionyx.com/orderers/orderer.herbionyx.com/msp/tlscacerts/tlsca.herbionyx.com-cert.pem
+  echo -e "${YELLOW}Creating channel with improved error handling...${NC}"
   
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to create channel${NC}"
-    echo -e "${YELLOW}Checking orderer logs...${NC}"
-    docker logs orderer.herbionyx.com --tail 50
-    exit 1
-  fi
+  # Try channel creation with retries
+  for attempt in {1..3}; do
+    echo -e "${YELLOW}Channel creation attempt $attempt/3...${NC}"
+    
+    docker exec cli peer channel create \
+      -o orderer.herbionyx.com:7050 \
+      -c $CHANNEL_NAME \
+      --ordererTLSHostnameOverride orderer.herbionyx.com \
+      -f ./channel-artifacts/${CHANNEL_NAME}.tx \
+      --outputBlock ./channel-artifacts/${CHANNEL_NAME}.block \
+      --tls \
+      --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/herbionyx.com/orderers/orderer.herbionyx.com/msp/tlscacerts/tlsca.herbionyx.com-cert.pem \
+      --timeout 60s
+    
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}✅ Channel created successfully${NC}"
+      break
+    elif [ $attempt -eq 3 ]; then
+      echo -e "${RED}Failed to create channel${NC}"
+      echo -e "${YELLOW}Checking orderer logs...${NC}"
+      docker logs orderer.herbionyx.com --tail 50
+      echo -e "${YELLOW}Checking orderer container status...${NC}"
+      docker ps --filter name=orderer.herbionyx.com
+      exit 1
+    else
+      echo -e "${YELLOW}Attempt $attempt failed, retrying...${NC}"
+      sleep 5
+    fi
+  done
   
   # Join channel using CLI container
   echo -e "${YELLOW}Joining channel using CLI container...${NC}"

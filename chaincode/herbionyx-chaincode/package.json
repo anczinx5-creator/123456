@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "fabric-chaincode-node start",
+    "build": "echo 'Build completed'",
     "test": "mocha test --recursive"
   },
   "dependencies": {
@@ -16,6 +17,15 @@
     "mocha": "^10.2.0"
   },
   "engines": {
-    "node": ">=16.0.0"
-  }
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "hyperledger-fabric",
+    "chaincode",
+    "ayurveda",
+    "traceability"
+  ],
+  "author": "SENTINELS Team",
+  "license": "MIT"
 }
