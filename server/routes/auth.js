@@ -9,6 +9,84 @@ const router = express.Router();
 // Mock user database (in production, use a proper database)
 const users = new Map();
 
+// Pre-register demo users
+const demoUsers = [
+  {
+    address: 'collector@demo.com',
+    privateKey: 'demo_collector_private_key_2024',
+    role: 1, // COLLECTOR
+    name: 'Demo Collector',
+    organization: 'Collector Group Demo',
+    phone: '+91-9876543210',
+    email: 'collector@demo.com',
+    password: 'demo123'
+  },
+  {
+    address: 'tester@demo.com',
+    privateKey: 'demo_tester_private_key_2024',
+    role: 2, // TESTER
+    name: 'Demo Tester',
+    organization: 'Testing Labs Demo',
+    phone: '+91-9876543211',
+    email: 'tester@demo.com',
+    password: 'demo123'
+  },
+  {
+    address: 'processor@demo.com',
+    privateKey: 'demo_processor_private_key_2024',
+    role: 3, // PROCESSOR
+    name: 'Demo Processor',
+    organization: 'Processing Unit Demo',
+    phone: '+91-9876543212',
+    email: 'processor@demo.com',
+    password: 'demo123'
+  },
+  {
+    address: 'manufacturer@demo.com',
+    privateKey: 'demo_manufacturer_private_key_2024',
+    role: 4, // MANUFACTURER
+    name: 'Demo Manufacturer',
+    organization: 'Manufacturing Plant Demo',
+    phone: '+91-9876543213',
+    email: 'manufacturer@demo.com',
+    password: 'demo123'
+  }
+];
+
+// Initialize demo users on startup
+async function initializeDemoUsers() {
+  console.log('🎭 Initializing demo users...');
+  
+  for (const demoUser of demoUsers) {
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(demoUser.password, 10);
+      
+      // Store user data
+      users.set(demoUser.address, {
+        address: demoUser.address,
+        privateKey: demoUser.privateKey,
+        role: demoUser.role,
+        name: demoUser.name,
+        organization: demoUser.organization,
+        phone: demoUser.phone,
+        email: demoUser.email,
+        password: hashedPassword,
+        createdAt: new Date(),
+        isActive: true
+      });
+      
+      console.log(`✅ Demo user registered: ${demoUser.name} (${demoUser.email}) - Role: ${demoUser.role}`);
+    } catch (error) {
+      console.error(`❌ Failed to register demo user ${demoUser.email}:`, error);
+    }
+  }
+  
+  console.log(`🎉 ${demoUsers.length} demo users initialized successfully`);
+}
+
+// Initialize demo users when module loads
+initializeDemoUsers().catch(console.error);
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
