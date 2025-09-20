@@ -69,17 +69,37 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
   const menuItems = getMenuItems();
 
   return (
-    <aside className={`
-      fixed top-[73px] left-0 z-40 h-[calc(100vh-73px)] w-64 
-      transform transition-transform duration-300 ease-in-out
-      ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      lg:translate-x-0 lg:static lg:h-[calc(100vh-73px)]
-      bg-white/90 backdrop-blur-md border-r border-green-100
-    `}>
+    <aside
+      className={`
+        fixed top-[73px] left-0 z-40 h-[calc(100vh-73px)] w-64 
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0 lg:static lg:h-[calc(100vh-73px)]
+        bg-white/90 backdrop-blur-md border-r border-green-100
+        flex flex-col
+      `}
+    >
       <nav className="h-full px-3 py-4 overflow-y-auto">
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
+            return (
+              <li key={item.id}>
+                <button
+                  onClick={() => onTabChange(item.id)}
+                  className={`
+                    flex items-center w-full p-2 text-gray-900 rounded-lg
+                    hover:bg-green-50 transition-colors
+                    ${activeTab === item.id ? 'bg-green-100 text-green-700' : ''}
+                  `}
+                >
+                  <IconComponent className="w-5 h-5 mr-3" />
+                  <span>{item.label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </nav>
     </aside>
   );
