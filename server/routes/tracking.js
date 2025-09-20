@@ -42,7 +42,7 @@ router.get('/batch/:eventId', async (req, res) => {
           for (const batch of batches) {
             const batchRecord = batch.Record || batch;
             const eventsResult = await fabricService.getBatchEvents(batchRecord.batchId);
-            if (eventsResult.success && eventsResult.data.find((event: any) => event.eventId === eventId)) {
+            if (eventsResult.success && eventsResult.data.find(event => event.eventId === eventId)) {
               targetBatch = batchRecord;
               batchEvents = eventsResult.data;
               break;
@@ -318,7 +318,7 @@ router.get('/batches', async (req, res) => {
             currentStatus: batchRecord.currentStatus || 'Unknown',
             eventCount: events.length,
             events: events,
-            participants: [...new Set(events.map((event: any) => 
+            participants: [...new Set(events.map(event => 
               event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown'
             ))].length
           };
