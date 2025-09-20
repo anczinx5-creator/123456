@@ -51,6 +51,7 @@ function networkUp() {
   echo -e "${YELLOW}Cleaning up existing containers...${NC}"
   cd ..
   docker-compose down --volumes --remove-orphans
+  docker network prune -f
   docker system prune -f
   cd scripts
   
@@ -82,8 +83,39 @@ function networkUp() {
   
   # Wait for containers to start
   echo -e "${YELLOW}Waiting for containers to start...${NC}"
-  sleep 30
+  sleep 45
   
+  # Wait for orderer to be ready
+  echo -e "${YELLOW}Waiting for orderer to be ready...${NC}"
+  for i in {1..60}; do
+    if docker exec cli nc -z orderer.herbionyx.com 7050 2>/dev/null; then
+      echo -e "${GREEN}✅ Orderer is ready${NC}"
+      break
+    fi
+    if [ $i -eq 60 ]; then
+      echo -e "${RED}❌ Orderer failed to start${NC}"
+      docker logs orderer.herbionyx.com --tail 20
+      exit 1
+    fi
+    echo "Waiting for orderer... ($i/60)"
+    sleep 2
+  done
+  
+  # Wait for peer to be ready
+  echo -e "${YELLOW}Waiting for peer to be ready...${NC}"
+  for i in {1..60}; do
+    if docker exec cli nc -z peer0.org1.herbionyx.com 7051 2>/dev/null; then
+      echo -e "${GREEN}✅ Peer is ready${NC}"
+      break
+    fi
+    if [ $i -eq 60 ]; then
+      echo -e "${RED}❌ Peer failed to start${NC}"
+      docker logs peer0.org1.herbionyx.com --tail 20
+      exit 1
+    fi
+    echo "Waiting for peer... ($i/60)"
+    sleep 2
+  done
   # Check container status
   echo -e "${YELLOW}Checking container status...${NC}"
   cd ..
@@ -129,6 +161,22 @@ function generateGenesis() {
 
 function createChannel() {
   echo -e "${GREEN}Creating channel: ${CHANNEL_NAME}${NC}"
+  
+  # Wait for orderer to be fully ready
+  echo -e "${YELLOW}Ensuring orderer is ready for channel operations...${NC}"
+  for i in {1..30}; do
+    if docker logs orderer.herbionyx.com 2>&1 | grep -q "Starting orderer"; then
+      echo -e "${GREEN}✅ Orderer is ready for channel operations${NC}"
+      break
+    fi
+    if [ $i -eq 30 ]; then
+      echo -e "${RED}❌ Orderer not ready for channel operations${NC}"
+      docker logs orderer.herbionyx.com --tail 30
+      exit 1
+    fi
+    echo "Waiting for orderer to be ready... ($i/30)"
+    sleep 3
+  done
   
   # Generate channel configuration transaction
   echo -e "${YELLOW}Generating channel configuration transaction...${NC}"
@@ -221,10 +269,28 @@ function createChannel() {
 function deployChaincode() {
   echo -e "${GREEN}Deploying chaincode: ${CHAINCODE_NAME}${NC}"
   
+  # Verify chaincode directory structure
+  echo -e "${YELLOW}Verifying chaincode structure...${NC}"
+  if [ ! -f "../../chaincode/herbionyx-chaincode/package.json" ]; then
+    echo -e "${RED}Error: Chaincode package.json not found${NC}"
+    echo "Expected location: ../../chaincode/herbionyx-chaincode/package.json"
+    ls -la ../../chaincode/
+    exit 1
+  fi
+  
+  if [ ! -f "../../chaincode/herbionyx-chaincode/index.js" ]; then
+    echo -e "${RED}Error: Chaincode index.js not found${NC}"
+    echo "Expected location: ../../chaincode/herbionyx-chaincode/index.js"
+    ls -la ../../chaincode/herbionyx-chaincode/
+    exit 1
+  fi
+  
+  echo -e "${GREEN}✅ Chaincode structure verified${NC}"
+  
   # Package chaincode using CLI container
   echo -e "${YELLOW}Packaging chaincode...${NC}"
   docker exec cli peer lifecycle chaincode package ${CHAINCODE_NAME}.tar.gz \
-    --path /opt/gopath/src/github.com/chaincode \
+    --path /opt/gopath/src/github.com/chaincode/herbionyx-chaincode \
     --lang node \
     --label ${CHAINCODE_NAME}_${CHAINCODE_VERSION}
   
