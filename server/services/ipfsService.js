@@ -188,6 +188,13 @@ class IPFSService {
   // ---------- Get File ----------
   async getFile(ipfsHash) {
     try {
+      if (!ipfsHash) {
+        return { 
+          success: false, 
+          error: 'IPFS hash is required' 
+        };
+      }
+      
       const url = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
       console.log('🔄 Retrieving file from IPFS:', ipfsHash);
       

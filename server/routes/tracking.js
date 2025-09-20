@@ -17,9 +17,9 @@ router.get('/batch/:eventId', async (req, res) => {
       });
     }
 
-    // Try to get batch events directly using the eventId as batchId first
-    let batchEvents = [];
+    // Try to find the batch containing this event
     let targetBatch = null;
+    let batchEvents = [];
     
     try {
       // First try treating eventId as batchId
@@ -37,12 +37,13 @@ router.get('/batch/:eventId', async (req, res) => {
         // If that fails, search through all batches
         const batchesResult = await fabricService.getAllBatches();
         if (batchesResult.success) {
-          const batches = batchesResult.data;
+          const batches = batchesResult.data || [];
           
           for (const batch of batches) {
-            const eventsResult = await fabricService.getBatchEvents(batch.Record?.batchId || batch.batchId);
+            const batchRecord = batch.Record || batch;
+            const eventsResult = await fabricService.getBatchEvents(batchRecord.batchId);
             if (eventsResult.success && eventsResult.data.find((event: any) => event.eventId === eventId)) {
-              targetBatch = batch.Record || batch;
+              targetBatch = batchRecord;
               batchEvents = eventsResult.data;
               break;
             }
@@ -53,15 +54,15 @@ router.get('/batch/:eventId', async (req, res) => {
       console.error('Fabric service error:', fabricError);
       return res.status(500).json({
         success: false,
-        error: 'Failed to connect to Hyperledger Fabric network. Please ensure the network is running.',
+        error: 'Failed to connect to Hyperledger Fabric network',
         details: fabricError.message
       });
     }
 
-    if (!targetBatch || batchEvents.length === 0) {
+    if (!targetBatch) {
       return res.status(404).json({
         success: false,
-        error: 'Batch or event not found'
+        error: 'Batch not found for this event ID'
       });
     }
     
