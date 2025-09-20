@@ -46,7 +46,7 @@ const SMSSimulator: React.FC = () => {
         const batchData = {
           batchId,
           herbSpecies: smsData.herbSpecies,
-          collectorName: phoneNumber,
+          collectorName: `SMS User (${phoneNumber})`,
           weight: smsData.weight,
           location: { zone: smsData.zone },
           qualityGrade: 'Standard',
@@ -54,13 +54,48 @@ const SMSSimulator: React.FC = () => {
           phone: phoneNumber
         };
 
-        await mockBlockchainService.createBatch('sms_user', batchData);
+        const result = await mockBlockchainService.createBatch('sms_user', batchData);
+        
+        // Send confirmation SMS
+        await mockSMSService.sendCollectionConfirmation(phoneNumber, batchId, eventId);
         
         setResult({
           success: true,
           message: 'Collection recorded via SMS',
           batchId,
-          eventId
+          eventId,
+          transactionId: result.transactionId
+        });
+      } else if (smsData.type === 'quality_test') {
+        // Process quality test via SMS
+        const testEventId = mockBlockchainService.generateEventId('QUALITY_TEST');
+        
+        const eventData = {
+          batchId: smsData.batchId,
+          eventId: testEventId,
+          parentEventId: smsData.batchId, // Simplified for SMS
+          testerName: `SMS User (${phoneNumber})`,
+          moistureContent: smsData.moistureContent,
+          purity: smsData.purity,
+          pesticideLevel: smsData.pesticideLevel,
+          testMethod: 'SMS Test',
+          ipfsHash: `Qm${Math.random().toString(36).substr(2, 44)}`,
+          qrCodeHash: `sms_test_${testEventId}`,
+          location: { latitude: '0', longitude: '0', zone: 'SMS Laboratory' }
+        };
+
+        const result = await mockBlockchainService.addQualityTestEvent('sms_user', eventData);
+        
+        // Send test result SMS
+        const status = smsData.purity >= 95 ? 'PASSED' : 'ATTENTION REQUIRED';
+        await mockSMSService.sendQualityTestNotification(phoneNumber, smsData.batchId, status, testEventId);
+        
+        setResult({
+          success: true,
+          message: 'Quality test recorded via SMS',
+          batchId: smsData.batchId,
+          eventId: testEventId,
+          transactionId: result.transactionId
         });
       }
 

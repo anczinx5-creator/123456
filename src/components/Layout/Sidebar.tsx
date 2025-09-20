@@ -28,8 +28,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
       { id: 'tracking', label: 'Track Batch', icon: Search },
       { id: 'batches', label: 'Active Batches', icon: List },
       { id: 'audit', label: 'Audit Log', icon: FileText },
-      { id: 'sms', label: 'SMS Simulator', icon: MessageSquare },
-      { id: 'admin', label: 'Admin Dashboard', icon: Settings }
+      { id: 'sms', label: 'SMS Simulator', icon: MessageSquare }
     ];
 
     if (user?.role === 1) { // Collector

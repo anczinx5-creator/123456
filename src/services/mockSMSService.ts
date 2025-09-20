@@ -51,8 +51,8 @@ class MockSMSService {
     this.notifications.unshift(notification); // Add to beginning
     this.saveToStorage();
 
-    // Show toast notification
-    this.showToastNotification(`📱 SMS Sent to ${phone}: ${message.substring(0, 30)}...`);
+    // Show toast notification with better formatting
+    this.showToastNotification(`📱 SMS → ${phone.substring(phone.length - 4)}: ${message.substring(0, 40)}...`);
 
     console.log(`📱 SMS sent to ${phone}: ${message}`);
     
@@ -106,13 +106,13 @@ class MockSMSService {
 
   private showToastNotification(message: string) {
     const toast = document.createElement('div');
-    toast.className = 'fixed top-20 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm text-sm';
+    toast.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-sm text-sm';
     toast.textContent = message;
     document.body.appendChild(toast);
     
     setTimeout(() => {
       toast.remove();
-    }, 4000);
+    }, 3000);
   }
 
   // Parse SMS commands (for offline collection simulation)

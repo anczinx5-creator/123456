@@ -15,7 +15,6 @@ import PlatformRating from './components/Consumer/PlatformRating';
 import ActiveBatches from './components/Batches/ActiveBatches';
 import ConnectionStatus from './components/Common/ConnectionStatus';
 import SMSSimulator from './components/SMS/SMSSimulator';
-import AdminDashboard from './components/Admin/AdminDashboard';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, loading, user } = useAuth();
@@ -80,8 +79,6 @@ const AppContent: React.FC = () => {
         return <PlatformRating />;
       case 'sms':
         return <SMSSimulator />;
-      case 'admin':
-        return <AdminDashboard />;
       default:
         return user?.role === 6 ? <ConsumerView /> : <CollectionForm />;
     }

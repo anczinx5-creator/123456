@@ -80,41 +80,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const IconComponent = item.icon;
-            return (
-              <li key={item.id}>
-                <button
-                  onClick={() => onTabChange(item.id)}
-                  className={`
-                    flex items-center space-x-3 w-full px-4 py-3 rounded-lg
-                    text-sm font-medium transition-all duration-200
-                    ${activeTab === item.id 
-                      ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-lg' 
-                      : 'text-green-700 hover:bg-green-50 hover:text-green-800'
-                    }
-                  `}
-                >
-                  <IconComponent className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-
-        {/* Role Indicator */}
-        <div className="mt-8 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-          <div className="text-center">
-            <p className="text-xs text-green-600 font-medium mb-1">Your Role</p>
-            <p className="text-sm font-bold text-green-800 capitalize">
-              {user?.role === 1 ? 'Collector' : 
-               user?.role === 2 ? 'Tester' : 
-               user?.role === 3 ? 'Processor' : 
-               user?.role === 4 ? 'Manufacturer' : 
-               'Consumer'}
-            </p>
-            <p className="text-xs text-green-600 mt-1">{user?.organization}</p>
-          </div>
-        </div>
       </nav>
     </aside>
   );
