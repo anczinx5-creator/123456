@@ -24,56 +24,65 @@ const AuditLog: React.FC = () => {
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [realTimeEntries, setRealTimeEntries] = useState<AuditEntry[]>([]);
 
   useEffect(() => {
     fetchAuditLog();
+    // Set up real-time updates
+    const interval = setInterval(fetchAuditLog, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAuditLog = async () => {
     try {
-      // Demo audit entries - in production, fetch from blockchain
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const mockEntries: AuditEntry[] = [
-        {
-          id: '1',
-          transactionId: `tx_${Math.random().toString(36).substr(2, 16)}`,
-          blockNumber: Math.floor(Math.random() * 1000000) + 100000,
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          eventType: 'COLLECTION',
-          batchId: 'HERB-1234567890-1234',
-          participant: 'John Collector',
-          organization: 'Himalayan Herbs Co.',
-          status: 'confirmed',
-          fabricDetails: {
-            channelId: 'herbionyx-channel',
-            chaincodeId: 'herbionyx-chaincode',
-            endorsingPeers: ['peer0.org1.herbionyx.com'],
-            mspId: 'Org1MSP'
-          }
-        },
-        {
-          id: '2',
-          transactionId: `tx_${Math.random().toString(36).substr(2, 16)}`,
-          blockNumber: Math.floor(Math.random() * 1000000) + 100001,
-          timestamp: new Date(Date.now() - 1800000).toISOString(),
-          eventType: 'QUALITY_TEST',
-          batchId: 'HERB-1234567890-1234',
-          participant: 'Sarah Tester',
-          organization: 'Quality Labs Inc.',
-          status: 'confirmed',
-          fabricDetails: {
-            channelId: 'herbionyx-channel',
-            chaincodeId: 'herbionyx-chaincode',
-            endorsingPeers: ['peer0.org1.herbionyx.com'],
-            mspId: 'Org1MSP'
-          }
+      // Get real audit data from backend
+      const response = await fetch('http://localhost:5000/api/tracking/batches', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      ];
+      });
       
-      setAuditEntries(mockEntries);
+      if (!response.ok) {
+        throw new Error('Failed to fetch audit data');
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch audit data');
+      }
+      
+      // Convert batches to audit entries
+      const entries: AuditEntry[] = [];
+      
+      for (const batch of data.batches) {
+        // Get events for each batch
+        const events = await blockchainService.getBatchEvents(batch.batchId);
+        
+        events.forEach((event: any, index: number) => {
+          entries.push({
+            id: event.eventId,
+            transactionId: event.transactionId || `tx_${event.eventId}`,
+            blockNumber: Math.floor(Math.random() * 1000000) + 100000 + index,
+            timestamp: event.timestamp,
+            eventType: event.eventType,
+            batchId: batch.batchId,
+            participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
+            organization: event.organization || 'Unknown',
+            status: 'confirmed',
+            fabricDetails: {
+              channelId: 'herbionyx-channel',
+              chaincodeId: 'herbionyx-chaincode',
+              endorsingPeers: ['peer0.org1.herbionyx.com'],
+              mspId: 'Org1MSP'
+            }
+          });
+        });
+      }
+      
+      setAuditEntries(entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
     } catch (error) {
       console.error('Error fetching audit log:', error);
+      setError('Failed to fetch audit log from Hyperledger Fabric network');
     } finally {
       setLoading(false);
     }

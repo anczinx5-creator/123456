@@ -8,6 +8,7 @@ const ConsumerView: React.FC = () => {
   const [qrInput, setQrInput] = useState('');
   const [productInfo, setProductInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleQRScan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,6 +16,7 @@ const ConsumerView: React.FC = () => {
 
     setLoading(true);
     setProductInfo(null);
+    setError('');
     
     try {
       // Parse QR code or event ID
@@ -33,61 +35,88 @@ const ConsumerView: React.FC = () => {
         eventId = qrInput;
       }
 
-      // Find batch containing this event
-      // Demo product info for testing
-      setProductInfo(mockProductInfo);
+      // Get real batch data from Hyperledger Fabric
+      const response = await fetch(`http://localhost:5000/api/tracking/batch/${eventId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Product not found');
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Product not found');
+      }
+      
+      // Transform batch data to product info
+      const batch = data.batch;
+      const events = batch.events || [];
+      
+      const productInfo = {
+        productName: getProductNameFromEvents(events),
+        batchId: batch.batchId,
+        manufacturer: getManufacturerFromEvents(events),
+        manufacturingDate: getManufacturingDateFromEvents(events),
+        expiryDate: getExpiryDateFromEvents(events),
+        authenticity: 'VERIFIED',
+        certifications: ['Blockchain Verified', 'Hyperledger Fabric Recorded'],
+        qualityMetrics: getQualityMetricsFromEvents(events),
+        journey: buildJourneyFromEvents(events)
+      };
+      
+      setProductInfo(productInfo);
     } catch (error) {
+      console.error('Consumer verification error:', error);
       setError('Product not found. Please check the QR code or product ID.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock product info for demo
-  const mockProductInfo = {
-    productName: 'Ashwagandha Premium Capsules',
-    batchId: 'HERB-1234567890-1234',
-    manufacturer: 'Ayurvedic Products Inc.',
-    manufacturingDate: '2024-01-15',
-    expiryDate: '2026-01-15',
-    authenticity: 'VERIFIED',
-    certifications: ['Blockchain Verified', 'GMP Certified', 'AYUSH Approved', 'Organic Certified'],
-    qualityMetrics: {
-      purity: '98.7%',
-      moistureContent: '8.2%',
-      pesticideLevel: '0.003 ppm',
-      heavyMetals: 'Within limits'
-    },
-    journey: [
-      {
-        stage: 'Collection',
-        location: 'Himalayan Region - Uttarakhand',
-        date: '2024-01-10',
-        participant: 'John Collector',
-        details: 'Premium quality herbs collected from approved organic zone'
-      },
-      {
-        stage: 'Quality Testing',
-        location: 'Quality Labs Inc.',
-        date: '2024-01-12',
-        participant: 'Sarah Tester',
-        details: 'Comprehensive laboratory testing completed - All parameters within standards'
-      },
-      {
-        stage: 'Processing',
-        location: 'Herbal Processing Ltd.',
-        date: '2024-01-13',
-        participant: 'Mike Processor',
-        details: 'Steam distillation processing with 85% yield efficiency'
-      },
-      {
-        stage: 'Manufacturing',
-        location: 'Ayurvedic Products Inc.',
-        date: '2024-01-15',
-        participant: 'Lisa Manufacturer',
-        details: 'Final product manufactured under GMP conditions with AYUSH certification'
-      }
-    ]
+  const getProductNameFromEvents = (events: any[]) => {
+    const mfgEvent = events.find(e => e.eventType === 'MANUFACTURING');
+    return mfgEvent?.productDetails?.productName || 'Herbal Product';
+  };
+
+  const getManufacturerFromEvents = (events: any[]) => {
+    const mfgEvent = events.find(e => e.eventType === 'MANUFACTURING');
+    return mfgEvent?.manufacturerName || 'Unknown Manufacturer';
+  };
+
+  const getManufacturingDateFromEvents = (events: any[]) => {
+    const mfgEvent = events.find(e => e.eventType === 'MANUFACTURING');
+    return mfgEvent?.timestamp ? new Date(mfgEvent.timestamp).toISOString().split('T')[0] : '';
+  };
+
+  const getExpiryDateFromEvents = (events: any[]) => {
+    const mfgEvent = events.find(e => e.eventType === 'MANUFACTURING');
+    return mfgEvent?.productDetails?.expiryDate || '';
+  };
+
+  const getQualityMetricsFromEvents = (events: any[]) => {
+    const qualityEvent = events.find(e => e.eventType === 'QUALITY_TEST');
+    if (!qualityEvent?.testResults) {
+      return { status: 'No quality test data available' };
+    }
+    
+    return {
+      purity: `${qualityEvent.testResults.purity}%`,
+      moistureContent: `${qualityEvent.testResults.moistureContent}%`,
+      pesticideLevel: `${qualityEvent.testResults.pesticideLevel} ppm`
+    };
+  };
+
+  const buildJourneyFromEvents = (events: any[]) => {
+    return events.map(event => ({
+      stage: event.eventType.replace('_', ' '),
+      location: event.location?.zone || event.location?.address || 'Unknown',
+      date: new Date(event.timestamp).toISOString().split('T')[0],
+      participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
+      details: event.notes || `${event.eventType.replace('_', ' ')} completed successfully`
+    }));
   };
 
   return (
@@ -134,6 +163,13 @@ const ConsumerView: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-8 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700">{error}</p>
+          </div>
+        )}
 
         {/* Product Information */}
         {productInfo && (

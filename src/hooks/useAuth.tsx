@@ -36,7 +36,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchUserProfile = async (token: string) => {
     try {
-      const response = await fetch('/api/auth/profile', {
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -67,53 +67,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const login = async (email: string, password: string) => {
-    // Demo mode - simulate login without backend
-    const demoUsers = {
-      'collector@demo.com': {
-        address: 'collector_address',
-        name: 'John Collector',
-        organization: 'Himalayan Herbs Co.',
-        role: 1,
-        email: 'collector@demo.com'
-      },
-      'tester@demo.com': {
-        address: 'tester_address',
-        name: 'Sarah Tester',
-        organization: 'Quality Labs Inc.',
-        role: 2,
-        email: 'tester@demo.com'
-      },
-      'processor@demo.com': {
-        address: 'processor_address',
-        name: 'Mike Processor',
-        organization: 'Herbal Processing Ltd.',
-        role: 3,
-        email: 'processor@demo.com'
-      },
-      'manufacturer@demo.com': {
-        address: 'manufacturer_address',
-        name: 'Lisa Manufacturer',
-        organization: 'Ayurvedic Products Inc.',
-        role: 4,
-        email: 'manufacturer@demo.com'
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ address: email, password })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
       }
-    };
 
-    if (password !== 'demo123') {
-      throw new Error('Invalid password');
-    }
-
-    const user = demoUsers[email as keyof typeof demoUsers];
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || 'Login failed');
+      }
     
-    localStorage.setItem('token', 'demo-token');
-    localStorage.setItem('userRole', user.role.toString()); // Store role for routing
-    setUser(user);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('userRole', data.user.role.toString());
+      setUser(data.user);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const loginAsConsumer = () => {

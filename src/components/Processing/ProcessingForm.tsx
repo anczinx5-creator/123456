@@ -160,7 +160,7 @@ const ProcessingForm: React.FC = () => {
         batchId,
         eventId: processEventId,
         parentEventId,
-        ipfsHash: metadataUpload.ipfsHash || 'demo-hash',
+        ipfsHash: metadataUpload.data.ipfsHash,
         location: {
           latitude: '0',
           longitude: '0',
@@ -175,8 +175,7 @@ const ProcessingForm: React.FC = () => {
       );
 
       if (!blockchainResult?.success) {
-        console.warn('Hyperledger Fabric warning:', blockchainResult?.warning || 'Transaction failed');
-        // Continue in demo mode
+        throw new Error('Failed to record on Hyperledger Fabric: ' + (blockchainResult?.error || 'Unknown error'));
       }
 
       setSuccess(true);
@@ -318,7 +317,7 @@ const ProcessingForm: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-purple-700 mb-2">
-                Scan QR Code (optional - auto-fills batch and parent event)
+                Scan QR Code from Quality Test (auto-fills batch and parent event)
               </label>
               <div className="flex space-x-2">
                 <input
@@ -326,16 +325,37 @@ const ProcessingForm: React.FC = () => {
                   name="qrCode"
                   value={formData.qrCode}
                   onChange={handleInputChange}
-                  placeholder="Scan or paste QR code data"
+                  placeholder="Paste QR code JSON data from quality test step"
                   className="flex-1 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
                 <button
                   type="button"
+                  onClick={() => {
+                    if (formData.qrCode) {
+                      try {
+                        const qrData = JSON.parse(formData.qrCode);
+                        setFormData(prev => ({
+                          ...prev,
+                          batchId: qrData.batchId || '',
+                          parentEventId: qrData.eventId || ''
+                        }));
+                      } catch (error) {
+                        setError('Invalid QR code format');
+                      }
+                    }
+                  }}
                   className="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
                 >
                   <QrCode className="h-5 w-5" />
                 </button>
               </div>
+              {formData.qrCode && (
+                <div className="mt-2 p-3 bg-purple-50 rounded-lg">
+                  <p className="text-xs text-purple-700">
+                    QR Code detected - Batch and Parent Event will be auto-filled
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

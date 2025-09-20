@@ -12,6 +12,7 @@ import BatchTracker from './components/Tracking/BatchTracker';
 import ConsumerView from './components/Consumer/ConsumerView';
 import AuditLog from './components/Audit/AuditLog';
 import PlatformRating from './components/Consumer/PlatformRating';
+import ActiveBatches from './components/Batches/ActiveBatches';
 import ConnectionStatus from './components/Common/ConnectionStatus';
 
 const AppContent: React.FC = () => {
@@ -67,6 +68,8 @@ const AppContent: React.FC = () => {
         return <ManufacturingForm />;
       case 'tracking':
         return <BatchTracker />;
+      case 'batches':
+        return <ActiveBatches />;
       case 'consumer':
         return <ConsumerView />;
       case 'audit':

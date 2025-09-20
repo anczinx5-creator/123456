@@ -269,7 +269,7 @@ const LoginForm: React.FC = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-sm text-green-200">
-          <p>Demo Mode - No Backend Required</p>
+          <p>Hyperledger Fabric Network Required</p>
         </div>
       </div>
     </div>

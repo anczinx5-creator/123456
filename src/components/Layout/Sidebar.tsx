@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Search,
   Shield,
-  FileText
+  FileText,
+  List
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -23,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
   const getMenuItems = () => {
     const commonItems = [
       { id: 'tracking', label: 'Track Batch', icon: Search },
+      { id: 'batches', label: 'Active Batches', icon: List },
       { id: 'audit', label: 'Audit Log', icon: FileText }
     ];
 

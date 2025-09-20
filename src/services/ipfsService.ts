@@ -1,7 +1,8 @@
-import apiService from './apiService';
+import { API_CONFIG } from '../config/api';
 
 class IPFSService {
   private isBackendAvailable = false;
+  private baseUrl = API_CONFIG.BASE_URL;
 
   constructor() {
     this.checkBackendAvailability();
@@ -9,8 +10,10 @@ class IPFSService {
 
   private async checkBackendAvailability() {
     try {
-      await fetch('http://localhost:5000/health');
+      const response = await fetch(`${this.baseUrl}/health`);
+      if (response.ok) {
       this.isBackendAvailable = true;
+      }
     } catch {
       this.isBackendAvailable = false;
     }
@@ -18,70 +21,78 @@ class IPFSService {
 
   async uploadJSON(jsonData: any, name: string) {
     try {
-      if (this.isBackendAvailable) {
-        return await apiService.uploadJSONToIPFS(jsonData, name);
-      } else {
-        // Demo mode - simulate IPFS upload
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!this.isBackendAvailable) {
+        throw new Error('Backend not available');
       }
       
-      const mockHash = `Qm${Math.random().toString(36).substr(2, 44)}`;
+      const response = await fetch(`${this.baseUrl}/api/ipfs/upload-json`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ jsonData, name })
+      });
       
-      return {
-        success: true,
-        ipfsHash: mockHash,
-        pinataUrl: `https://gateway.pinata.cloud/ipfs/${mockHash}`
-      };
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
     } catch (error) {
       console.error('Error uploading JSON to IPFS:', error);
-      return { success: false, error: (error as Error).message };
+      throw error;
     }
   }
 
   async uploadFile(file: File) {
     try {
-      if (this.isBackendAvailable) {
-        return await apiService.uploadToIPFS(file);
-      } else {
-        // Demo mode - simulate file upload
-        await new Promise(resolve => setTimeout(resolve, 1500));
+      if (!this.isBackendAvailable) {
+        throw new Error('Backend not available');
       }
       
-      const mockHash = `Qm${Math.random().toString(36).substr(2, 44)}`;
+      const formData = new FormData();
+      formData.append('file', file);
       
-      return {
-        success: true,
-        ipfsHash: mockHash,
-        pinataUrl: `https://gateway.pinata.cloud/ipfs/${mockHash}`
-      };
+      const response = await fetch(`${this.baseUrl}/api/ipfs/upload-file`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
     } catch (error) {
       console.error('Error uploading file to IPFS:', error);
-      return { success: false, error: (error as Error).message };
+      throw error;
     }
   }
 
   async getFile(ipfsHash: string) {
     try {
-      if (this.isBackendAvailable) {
-        return await apiService.getFromIPFS(ipfsHash);
-      } else {
-        // Demo mode - return mock metadata
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (!this.isBackendAvailable) {
+        throw new Error('Backend not available');
       }
       
-      return {
-        success: true,
-        data: {
-          type: 'collection',
-          herbSpecies: 'Ashwagandha',
-          collector: 'John Collector',
-          weight: 500,
-          notes: 'High quality herbs collected from approved zone'
+      const response = await fetch(`${this.baseUrl}/api/ipfs/get-file/${ipfsHash}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      };
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
     } catch (error) {
       console.error('Error retrieving file from IPFS:', error);
-      return { success: false, error: (error as Error).message };
+      throw error;
     }
   }
 
@@ -92,18 +103,25 @@ class IPFSService {
       ...collectionData
     };
     
-    if (this.isBackendAvailable) {
-      try {
-        return await apiService.makeRequest('/api/ipfs/create-collection-metadata', {
-          method: 'POST',
-          body: JSON.stringify({ collectionData: metadata })
-        });
-      } catch (error) {
-        console.log('Backend unavailable, using demo mode');
+    try {
+      const response = await fetch(`${this.baseUrl}/api/ipfs/create-collection-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ collectionData: metadata })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating collection metadata:', error);
+      throw error;
     }
-    
-    return await this.uploadJSON(metadata, `collection-${collectionData.batchId}`);
   }
 
   async createQualityTestMetadata(testData: any) {
@@ -113,18 +131,25 @@ class IPFSService {
       ...testData
     };
     
-    if (this.isBackendAvailable) {
-      try {
-        return await apiService.makeRequest('/api/ipfs/create-quality-test-metadata', {
-          method: 'POST',
-          body: JSON.stringify({ testData: metadata })
-        });
-      } catch (error) {
-        console.log('Backend unavailable, using demo mode');
+    try {
+      const response = await fetch(`${this.baseUrl}/api/ipfs/create-quality-test-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ testData: metadata })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating quality test metadata:', error);
+      throw error;
     }
-    
-    return await this.uploadJSON(metadata, `quality-test-${testData.eventId}`);
   }
 
   async createProcessingMetadata(processData: any) {
@@ -134,18 +159,25 @@ class IPFSService {
       ...processData
     };
     
-    if (this.isBackendAvailable) {
-      try {
-        return await apiService.makeRequest('/api/ipfs/create-processing-metadata', {
-          method: 'POST',
-          body: JSON.stringify({ processData: metadata })
-        });
-      } catch (error) {
-        console.log('Backend unavailable, using demo mode');
+    try {
+      const response = await fetch(`${this.baseUrl}/api/ipfs/create-processing-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ processData: metadata })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating processing metadata:', error);
+      throw error;
     }
-    
-    return await this.uploadJSON(metadata, `processing-${processData.eventId}`);
   }
 
   async createManufacturingMetadata(mfgData: any) {
@@ -155,18 +187,25 @@ class IPFSService {
       ...mfgData
     };
     
-    if (this.isBackendAvailable) {
-      try {
-        return await apiService.makeRequest('/api/ipfs/create-manufacturing-metadata', {
-          method: 'POST',
-          body: JSON.stringify({ mfgData: metadata })
-        });
-      } catch (error) {
-        console.log('Backend unavailable, using demo mode');
+    try {
+      const response = await fetch(`${this.baseUrl}/api/ipfs/create-manufacturing-metadata`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ mfgData: metadata })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating manufacturing metadata:', error);
+      throw error;
     }
-    
-    return await this.uploadJSON(metadata, `manufacturing-${mfgData.eventId}`);
   }
 }
 

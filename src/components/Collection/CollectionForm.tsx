@@ -227,7 +227,7 @@ const CollectionForm: React.FC = () => {
         batchId,
         herbSpecies: formData.herbSpecies,
         collectionEventId,
-        ipfsHash: metadataUpload.ipfsHash || 'demo-hash',
+        ipfsHash: metadataUpload.data.ipfsHash,
         location: {
           latitude: location.latitude,
           longitude: location.longitude,
@@ -242,9 +242,8 @@ const CollectionForm: React.FC = () => {
         blockchainData
       );
 
-      if (!blockchainResult.success) {
-        console.warn('Blockchain warning:', blockchainResult.warning || 'Transaction failed');
-        // Continue in demo mode
+      if (!blockchainResult?.success) {
+        throw new Error('Failed to record on Hyperledger Fabric: ' + (blockchainResult?.error || 'Unknown error'));
       }
 
       setSuccess(true);

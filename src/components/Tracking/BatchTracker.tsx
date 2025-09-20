@@ -19,39 +19,82 @@ const BatchTracker: React.FC = () => {
     setTrackingResult(null);
 
     try {
-      // Demo tracking result
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try to get batch events from Hyperledger Fabric
+      const events = await blockchainService.getBatchEvents(searchQuery);
       
+      if (events.length === 0) {
+        setError('Batch not found or no events recorded');
+        return;
+      }
+
+      // Get batch info from first event
+      const firstEvent = events[0];
+      const lastEvent = events[events.length - 1];
+      
+      // Determine current status based on last event
+      const getStatusFromEventType = (eventType: string) => {
+        switch (eventType) {
+          case 'COLLECTION': return 'Collected';
+          case 'QUALITY_TEST': return 'Quality Tested';
+          case 'PROCESSING': return 'Processed';
+          case 'MANUFACTURING': return 'Manufacturing Complete';
+          default: return 'In Progress';
+        }
+      };
+
       setTrackingResult({
         batchId: searchQuery,
-        herbSpecies: 'Ashwagandha',
-        currentStatus: 'Manufacturing Complete',
-        events: [
-          {
-            eventId: 'COLLECTION-1234567890-1234',
-            type: 'Collection',
-            participant: 'John Collector',
-            organization: 'Himalayan Herbs Co.',
-            timestamp: Date.now() - 86400000,
-            location: 'Himalayan Region - Uttarakhand',
-            details: { weight: '500g', qualityGrade: 'Premium' }
-          },
-          {
-            eventId: 'QUALITY-1234567890-5678',
-            type: 'Quality Test',
-            participant: 'Sarah Tester',
-            organization: 'Quality Labs Inc.',
-            timestamp: Date.now() - 43200000,
-            location: 'Quality Labs Inc.',
-            details: { purity: '98.7%', moistureContent: '8.2%' }
-          }
-        ]
+        herbSpecies: firstEvent.herbSpecies || 'Unknown',
+        currentStatus: getStatusFromEventType(lastEvent.eventType),
+        events: events.map(event => ({
+          eventId: event.eventId,
+          type: event.eventType.replace('_', ' '),
+          participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
+          organization: event.organization || 'Unknown',
+          timestamp: new Date(event.timestamp).getTime(),
+          location: event.location?.zone || event.location?.address || 'Unknown',
+          details: this.extractEventDetails(event)
+        }))
       });
     } catch (error) {
+      console.error('Tracking error:', error);
       setError((error as Error).message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const extractEventDetails = (event: any) => {
+    const details: any = {};
+    
+    switch (event.eventType) {
+      case 'COLLECTION':
+        if (event.weight) details.weight = `${event.weight}g`;
+        if (event.qualityGrade) details.qualityGrade = event.qualityGrade;
+        break;
+      case 'QUALITY_TEST':
+        if (event.testResults) {
+          if (event.testResults.purity) details.purity = `${event.testResults.purity}%`;
+          if (event.testResults.moistureContent) details.moistureContent = `${event.testResults.moistureContent}%`;
+          if (event.testResults.pesticideLevel) details.pesticideLevel = `${event.testResults.pesticideLevel} ppm`;
+        }
+        break;
+      case 'PROCESSING':
+        if (event.processingDetails) {
+          if (event.processingDetails.method) details.method = event.processingDetails.method;
+          if (event.processingDetails.yield) details.yield = `${event.processingDetails.yield}g`;
+          if (event.processingDetails.temperature) details.temperature = `${event.processingDetails.temperature}°C`;
+        }
+        break;
+      case 'MANUFACTURING':
+        if (event.productDetails) {
+          if (event.productDetails.productName) details.productName = event.productDetails.productName;
+          if (event.productDetails.quantity) details.quantity = `${event.productDetails.quantity} ${event.productDetails.unit || 'units'}`;
+        }
+        break;
+    }
+    
+    return details;
   };
 
   const toggleTransactions = (eventId: string) => {
