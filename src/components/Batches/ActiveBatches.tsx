@@ -30,26 +30,8 @@ const ActiveBatches: React.FC = () => {
 
   const fetchActiveBatches = async () => {
     try {
-      // Initialize blockchain service first
-      await blockchainService.initialize();
-      
-      const response = await fetch('http://localhost:5000/api/tracking/batches', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch batches from server`);
-      }
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch batches');
-      }
-      
-      // Transform the data for display
-      const transformedBatches = data.batches.map((batch: any) => ({
+      const batches = await blockchainService.getAllBatches();
+      const transformedBatches = batches.map((batch: any) => ({
         batchId: batch.batchId,
         herbSpecies: batch.herbSpecies || 'Unknown',
         creator: batch.creator || 'Unknown',
@@ -63,7 +45,7 @@ const ActiveBatches: React.FC = () => {
       setBatches(transformedBatches);
     } catch (error) {
       console.error('Error fetching active batches:', error);
-      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up`);
+      setError(`Failed to fetch batches: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }

@@ -25,74 +25,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      // Verify token and get user info
-      fetchUserProfile(token);
-    } else {
-      setLoading(false);
+    // Load user from localStorage for simulation
+    const userData = localStorage.getItem('herbionyx_user');
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        localStorage.removeItem('herbionyx_user');
+      }
     }
+    setLoading(false);
   }, []);
 
-  const fetchUserProfile = async (token: string) => {
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const text = await response.text();
-      if (!text) {
-        throw new Error('Empty response from server');
-      }
-      
-      const data = JSON.parse(text);
-      
-      if (data.success) {
-        setUser(data.user);
-      } else {
-        localStorage.removeItem('token');
-      }
-    } catch (error) {
-      console.log('Server not available, continuing in demo mode');
-      localStorage.removeItem('token');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const login = async (email: string, password: string) => {
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ address: email, password })
-      });
+    // Simulate login with demo users
+    const demoUsers = [
+      { email: 'collector@demo.com', password: 'demo123', role: 1, name: 'Demo Collector', organization: 'Collector Group Demo' },
+      { email: 'tester@demo.com', password: 'demo123', role: 2, name: 'Demo Tester', organization: 'Testing Labs Demo' },
+      { email: 'processor@demo.com', password: 'demo123', role: 3, name: 'Demo Processor', organization: 'Processing Unit Demo' },
+      { email: 'manufacturer@demo.com', password: 'demo123', role: 4, name: 'Demo Manufacturer', organization: 'Manufacturing Plant Demo' }
+    ];
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Login failed');
-      }
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Login failed');
-      }
-    
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('userRole', data.user.role.toString());
-      setUser(data.user);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    const user = demoUsers.find(u => u.email === email && u.password === password);
+    if (!user) {
+      throw new Error('Invalid credentials');
     }
+
+    const userData = {
+      address: email,
+      name: user.name,
+      organization: user.organization,
+      role: user.role,
+      email: email
+    };
+
+    localStorage.setItem('token', `demo_token_${Date.now()}`);
+    localStorage.setItem('userRole', user.role.toString());
+    localStorage.setItem('herbionyx_user', JSON.stringify(userData));
+    setUser(userData);
   };
 
   const loginAsConsumer = () => {
@@ -106,12 +76,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     localStorage.setItem('token', 'consumer-token');
     localStorage.setItem('userRole', '6'); // Store consumer role
+    localStorage.setItem('herbionyx_user', JSON.stringify(consumerUser));
     setUser(consumerUser);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('herbionyx_user');
     setUser(null);
   };
 

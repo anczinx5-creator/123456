@@ -19,38 +19,9 @@ const BatchTracker: React.FC = () => {
     setTrackingResult(null);
 
     try {
-      // Initialize blockchain service first
-      await blockchainService.initialize();
-      
-      // Try to get batch data from backend API
-      const response = await fetch(`http://localhost:5000/api/tracking/batch/${searchQuery}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError('Batch not found. Please check the Batch ID or Event ID.');
-        } else {
-          setError(`Server error: ${response.status}. Please ensure the Hyperledger Fabric backend is running.`);
-        }
-        return;
-      }
-      
-      const data = await response.json();
-      if (!data.success) {
-        setError(data.error || 'Failed to fetch batch data');
-        return;
-      }
-      
+      const data = await blockchainService.getBatchInfo(searchQuery);
       const batch = data.batch;
       const events = batch.events || [];
-      
-      if (events.length === 0) {
-        setError('No events found for this batch');
-        return;
-      }
 
       // Transform the data for display
       setTrackingResult({
@@ -68,11 +39,7 @@ const BatchTracker: React.FC = () => {
         }))
       });
     } catch (error) {
-      console.error('Tracking error:', error);
-      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running.`);
-    } finally {
-      setLoading(false);
-    }
+      setError((error as Error).message || 'Batch not found');
   };
 
   const extractEventDetails = (event: any) => {

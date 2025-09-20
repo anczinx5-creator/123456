@@ -37,78 +37,11 @@ const AuditLog: React.FC = () => {
   const fetchAuditLog = async () => {
     try {
       setError('');
-      
-      // Initialize blockchain service first
-      await blockchainService.initialize();
-      
-      // Get all batches first
-      const response = await fetch('http://localhost:5000/api/tracking/batches', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch audit data from server`);
-      }
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch audit data');
-      }
-      
-      // Convert batches and their events to audit entries
-      const entries: AuditEntry[] = [];
-      
-      for (const batch of data.batches) {
-        // Get detailed events for each batch
-        try {
-          const eventsResponse = await fetch(`http://localhost:5000/api/tracking/batch/${batch.batchId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-            }
-          });
-          
-          if (!eventsResponse.ok) {
-            console.warn(`Failed to fetch events for batch ${batch.batchId}`);
-            continue;
-          }
-          
-          const eventsData = await eventsResponse.json();
-          if (!eventsData.success || !eventsData.batch?.events) {
-            continue;
-          }
-          
-          const events = eventsData.batch.events;
-        
-          events.forEach((event: any, index: number) => {
-            entries.push({
-              id: event.eventId,
-              transactionId: event.transactionId || `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              blockNumber: Math.floor(Math.random() * 1000000) + 100000 + index,
-              timestamp: event.timestamp,
-              eventType: event.eventType || 'UNKNOWN',
-              batchId: batch.batchId,
-              participant: event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown',
-              organization: 'Hyperledger Fabric Network',
-              status: 'confirmed' as const,
-              fabricDetails: {
-                channelId: 'herbionyx-channel',
-                chaincodeId: 'herbionyx-chaincode',
-                endorsingPeers: ['peer0.org1.herbionyx.com'],
-                mspId: 'Org1MSP'
-              }
-            });
-          });
-        } catch (eventError) {
-          console.warn(`Failed to fetch events for batch ${batch.batchId}:`, eventError);
-        }
-      }
-      
-      setAuditEntries(entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+      const auditTrail = blockchainService.getAuditTrail();
+      setAuditEntries(auditTrail.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
     } catch (error) {
       console.error('Error fetching audit log:', error);
-      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up`);
+      setError(`Failed to fetch audit data: ${(error as Error).message}`);
     } finally {
       setLoading(false);
     }

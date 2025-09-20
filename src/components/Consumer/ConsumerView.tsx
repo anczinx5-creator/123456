@@ -35,23 +35,7 @@ const ConsumerView: React.FC = () => {
         eventId = qrInput;
       }
 
-      // Get real batch data from Hyperledger Fabric
-      const response = await fetch(`http://localhost:5000/api/tracking/batch/${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Product not found');
-      }
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Product not found');
-      }
-      
-      // Transform batch data to product info
+      const data = await blockchainService.getBatchInfo(eventId);
       const batch = data.batch;
       const events = batch.events || [];
       

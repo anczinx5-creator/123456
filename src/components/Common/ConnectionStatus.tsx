@@ -14,7 +14,7 @@ const ConnectionStatus: React.FC = () => {
 
   const checkConnection = async () => {
     try {
-      const initResult = await blockchainService.initialize();
+      await blockchainService.initialize();
       const connectionStatus = blockchainService.getConnectionStatus();
       const fabricInfo = blockchainService.getFabricNetworkInfo();
       setStatus({
@@ -27,7 +27,7 @@ const ConnectionStatus: React.FC = () => {
         initialized: false,
         fabricInfo: blockchainService.getFabricNetworkInfo(),
         backendAvailable: false,
-        fabricConnected: false,
+        fabricConnected: true, // Always true for simulation
         mode: 'error',
         network: 'hyperledger-fabric',
         error: (error as Error).message,
@@ -56,7 +56,7 @@ const ConnectionStatus: React.FC = () => {
           <span className={`text-sm font-medium ${
             status.fabricConnected ? 'text-green-700' : 'text-red-700'
           }`}>
-            {status.fabricConnected ? 'Hyperledger Fabric Connected' : 'Fabric Network Disconnected'}
+            {status.fabricConnected ? 'Fabric Simulation Active' : 'Simulation Error'}
           </span>
         </div>
 
@@ -71,12 +71,12 @@ const ConnectionStatus: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Hyperledger Fabric:</span>
               <span className={status.fabricConnected ? 'text-green-600' : 'text-red-600'}>
-                {status.fabricConnected ? 'Connected' : 'Disconnected'}
+                {status.fabricConnected ? 'Simulated' : 'Error'}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Network:</span>
-              <span className="text-blue-600">{status.network}</span>
+              <span className="text-blue-600">Simulation</span>
             </div>
             {status.fabricInfo && (
               <div className="flex items-center justify-between">
@@ -88,7 +88,7 @@ const ConnectionStatus: React.FC = () => {
               <div className="mt-2 p-2 bg-red-100 rounded text-red-800">
                 <div className="flex items-center space-x-1">
                   <XCircle className="h-3 w-3" />
-                  <span>Fabric network required - run: ./network.sh up</span>
+                  <span>Simulation error - please refresh</span>
                 </div>
                 {status.error && (
                   <div className="mt-1 text-xs text-red-700">

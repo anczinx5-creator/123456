@@ -8,7 +8,9 @@ import {
   Search,
   Shield,
   FileText,
-  List
+  List,
+  MessageSquare,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -25,7 +27,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
     const commonItems = [
       { id: 'tracking', label: 'Track Batch', icon: Search },
       { id: 'batches', label: 'Active Batches', icon: List },
-      { id: 'audit', label: 'Audit Log', icon: FileText }
+      { id: 'audit', label: 'Audit Log', icon: FileText },
+      { id: 'sms', label: 'SMS Simulator', icon: MessageSquare },
+      { id: 'admin', label: 'Admin Dashboard', icon: Settings }
     ];
 
     if (user?.role === 1) { // Collector
