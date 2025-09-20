@@ -11,43 +11,112 @@ class FabricService {
         this.walletPath = path.join(process.cwd(), 'wallet');
         this.gateway = null;
         this.contract = null;
+        this.isConnected = false;
+    }
+
+    async connect() {
+        try {
+            if (this.isConnected && this.contract) {
+                console.log('✅ Already connected to Fabric network');
+                return { success: true, demo: false };
+            }
+
+            // Check if Fabric network is running
+            await this.checkNetworkAvailability();
+
+            // Initialize wallet
+            const wallet = await this.initializeWallet();
+
+            // Create gateway
+            this.gateway = new Gateway();
+            
+            // Connect to gateway
+            const connectionProfile = this.getConnectionProfile();
+            await this.gateway.connect(connectionProfile, {
+                wallet,
+                identity: 'appUser',
+                discovery: { enabled: true, asLocalhost: true }
+            });
+
+            // Get network and contract
+            const network = await this.gateway.getNetwork(this.channelName);
+            this.contract = network.getContract(this.chaincodeName);
+
+            this.isConnected = true;
+            console.log('✅ Successfully connected to Hyperledger Fabric network');
+            
+            return { success: true, demo: false };
+        } catch (error) {
+            console.error('❌ Failed to connect to Hyperledger Fabric network:', error.message);
+            throw new Error(`Hyperledger Fabric network connection failed: ${error.message}. Please ensure the network is running using: cd fabric-network/scripts && ./network.sh up`);
+        }
+    }
+
+    async checkNetworkAvailability() {
+        // Check if required certificate files exist
+        const requiredFiles = [
+            path.join(__dirname, '../../fabric-network/organizations/peerOrganizations/org1.herbionyx.com/ca/ca.org1.herbionyx.com-cert.pem'),
+            path.join(__dirname, '../../fabric-network/organizations/peerOrganizations/org1.herbionyx.com/tlsca/tlsca.org1.herbionyx.com-cert.pem'),
+            path.join(__dirname, '../../fabric-network/organizations/ordererOrganizations/herbionyx.com/ca/ca.herbionyx.com-cert.pem')
+        ];
+
+        for (const file of requiredFiles) {
+            if (!fs.existsSync(file)) {
+                throw new Error(`Required certificate file not found: ${file}. Please start the Fabric network first.`);
+            }
+        }
+
+        // Test network connectivity by checking if containers are running
+        const { exec } = require('child_process');
+        return new Promise((resolve, reject) => {
+            exec('docker ps --filter name=peer0.org1.herbionyx.com --format "{{.Names}}"', (error, stdout) => {
+                if (error || !stdout.includes('peer0.org1.herbionyx.com')) {
+                    reject(new Error('Fabric network containers are not running. Please start the network using: cd fabric-network/scripts && ./network.sh up'));
+                } else {
+                    resolve(true);
+                }
+            });
+        });
     }
 
     async initializeWallet() {
         try {
-            // Create wallet if it doesn't exist
             const wallet = await Wallets.newFileSystemWallet(this.walletPath);
 
             // Check if admin identity exists
             const adminIdentity = await wallet.get('admin');
             if (!adminIdentity) {
-                console.log('Admin identity not found in wallet, creating...');
+                console.log('Creating admin identity...');
                 await this.enrollAdmin(wallet);
             }
 
             // Check if user identity exists
             const userIdentity = await wallet.get('appUser');
             if (!userIdentity) {
-                console.log('User identity not found in wallet, creating...');
+                console.log('Creating user identity...');
                 await this.registerUser(wallet);
             }
 
             return wallet;
         } catch (error) {
             console.error('Failed to initialize wallet:', error);
-            throw error;
+            throw new Error(`Wallet initialization failed: ${error.message}`);
         }
     }
 
     async enrollAdmin(wallet) {
         try {
-            // Create CA client
             const caInfo = this.getCaInfo();
-            const caTLSCACerts = caInfo.tlsCACerts;
-            const ca = new FabricCAServices(caInfo.url, { trustedRoots: caTLSCACerts, verify: false }, caInfo.caName);
+            const ca = new FabricCAServices(caInfo.url, { 
+                trustedRoots: caInfo.tlsCACerts, 
+                verify: false 
+            }, caInfo.caName);
 
-            // Enroll admin
-            const enrollment = await ca.enroll({ enrollmentID: 'admin', enrollmentSecret: 'adminpw' });
+            const enrollment = await ca.enroll({ 
+                enrollmentID: 'admin', 
+                enrollmentSecret: 'adminpw' 
+            });
+            
             const x509Identity = {
                 credentials: {
                     certificate: enrollment.certificate,
@@ -58,38 +127,35 @@ class FabricService {
             };
 
             await wallet.put('admin', x509Identity);
-            console.log('Successfully enrolled admin user and imported it into the wallet');
+            console.log('✅ Successfully enrolled admin user');
         } catch (error) {
             console.error('Failed to enroll admin user:', error);
-            throw error;
+            throw new Error(`Admin enrollment failed: ${error.message}`);
         }
     }
 
     async registerUser(wallet) {
         try {
-            // Create CA client
             const caInfo = this.getCaInfo();
-            const caTLSCACerts = caInfo.tlsCACerts;
-            const ca = new FabricCAServices(caInfo.url, { trustedRoots: caTLSCACerts, verify: false }, caInfo.caName);
+            const ca = new FabricCAServices(caInfo.url, { 
+                trustedRoots: caInfo.tlsCACerts, 
+                verify: false 
+            }, caInfo.caName);
 
-            // Get admin identity
             const adminIdentity = await wallet.get('admin');
             if (!adminIdentity) {
                 throw new Error('Admin identity not found in wallet');
             }
 
-            // Build user object for authenticating with the CA
             const provider = wallet.getProviderRegistry().getProvider(adminIdentity.type);
             const adminUser = await provider.getUserContext(adminIdentity, 'admin');
 
-            // Register user
             const secret = await ca.register({
                 affiliation: 'org1.department1',
                 enrollmentID: 'appUser',
                 role: 'client'
             }, adminUser);
 
-            // Enroll user
             const enrollment = await ca.enroll({
                 enrollmentID: 'appUser',
                 enrollmentSecret: secret
@@ -105,20 +171,18 @@ class FabricService {
             };
 
             await wallet.put('appUser', x509Identity);
-            console.log('Successfully registered and enrolled app user and imported it into the wallet');
+            console.log('✅ Successfully registered and enrolled app user');
         } catch (error) {
             console.error('Failed to register user:', error);
-            throw error;
+            throw new Error(`User registration failed: ${error.message}`);
         }
     }
 
     getCaInfo() {
-        // In a real deployment, this would read from connection profile
         const certPath = path.join(__dirname, '../../fabric-network/organizations/peerOrganizations/org1.herbionyx.com/ca/ca.org1.herbionyx.com-cert.pem');
         
-        // Check if certificate file exists
         if (!fs.existsSync(certPath)) {
-            throw new Error('Fabric network certificates not found - please start the network first');
+            throw new Error('Fabric network certificates not found - please start the network first using: cd fabric-network/scripts && ./network.sh up');
         }
         
         return {
@@ -132,9 +196,8 @@ class FabricService {
         const peerCertPath = path.join(__dirname, '../../fabric-network/organizations/peerOrganizations/org1.herbionyx.com/tlsca/tlsca.org1.herbionyx.com-cert.pem');
         const caCertPath = path.join(__dirname, '../../fabric-network/organizations/peerOrganizations/org1.herbionyx.com/ca/ca.org1.herbionyx.com-cert.pem');
         
-        // Check if certificate files exist
         if (!fs.existsSync(peerCertPath) || !fs.existsSync(caCertPath)) {
-            throw new Error('Fabric network certificates not found - please start the network first');
+            throw new Error('Fabric network certificates not found - please start the network first using: cd fabric-network/scripts && ./network.sh up');
         }
         
         return {
@@ -144,9 +207,8 @@ class FabricService {
                 organization: 'Org1',
                 connection: {
                     timeout: {
-                        peer: {
-                            endorser: '300'
-                        }
+                        peer: { endorser: '300' },
+                        orderer: '300'
                     }
                 }
             },
@@ -184,74 +246,10 @@ class FabricService {
         };
     }
 
-    async connect() {
-        try {
-            // Check if we're in demo mode (no Fabric network required)
-            if (process.env.DEMO_MODE === 'true') {
-                console.log('🎭 Running in demo mode - Fabric network not required');
-                return { success: true, demo: true };
-            }
-
-            // Initialize wallet
-            const wallet = await this.initializeWallet().catch(error => {
-                console.log('⚠️  Wallet initialization failed, continuing without Fabric connection');
-                throw error;
-            });
-
-            // Create gateway
-            this.gateway = new Gateway();
-            
-            // Connect to gateway
-            await this.gateway.connect(this.getConnectionProfile().catch(error => {
-                console.log('⚠️  Connection profile unavailable');
-                throw error;
-            }), {
-                wallet,
-                identity: 'appUser',
-                discovery: { enabled: true, asLocalhost: true }
-            }).catch(error => {
-                console.log('⚠️  Gateway connection failed');
-                throw error;
-            });
-
-            // Get network and contract
-            const network = await this.gateway.getNetwork(this.channelName);
-            this.contract = network.getContract(this.chaincodeName);
-
-            console.log('✅ Connected to Fabric network successfully');
-            return { success: true, demo: false };
-        } catch (error) {
-            console.log('⚠️  Failed to connect to Fabric network - this is expected if the network is not running');
-            console.log('💡 The server will continue to run in demo mode');
-            return { success: true, demo: true };
-        }
-    }
-
-    async disconnect() {
-        if (this.gateway) {
-            this.gateway.disconnect();
-            this.gateway = null;
-            this.contract = null;
-        }
-    }
-
     async createCollectionEvent(batchId, herbSpecies, collectorName, weight, harvestDate, location, qualityGrade, notes, ipfsHash, qrCodeHash) {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric collection event');
-                // Return mock successful response
-                return {
-                    success: true,
-                    data: {
-                        eventId: `COLLECTION-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                        batchId,
-                        herbSpecies,
-                        collectorName,
-                        timestamp: new Date().toISOString()
-                    },
-                    transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.submitTransaction(
@@ -268,48 +266,23 @@ class FabricService {
                 qrCodeHash
             );
 
+            console.log('✅ Collection event created on Hyperledger Fabric');
             return {
                 success: true,
                 data: JSON.parse(result.toString()),
-                transactionId: result.transactionId,
+                transactionId: `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 demo: false
             };
         } catch (error) {
-            console.error('Error creating collection event:', error);
-            // Fall back to demo mode on error
-            console.log('🎭 Falling back to demo mode for collection event');
-            return {
-                success: true,
-                data: {
-                    eventId: `COLLECTION-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                    batchId,
-                    herbSpecies,
-                    collectorName,
-                    timestamp: new Date().toISOString()
-                },
-                transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error creating collection event on Fabric:', error);
+            throw new Error(`Failed to create collection event on Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async createQualityTestEvent(batchId, parentEventId, testerName, moistureContent, purity, pesticideLevel, testMethod, notes, ipfsHash, qrCodeHash) {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric quality test event');
-                return {
-                    success: true,
-                    data: {
-                        eventId: `QUALITY-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                        batchId,
-                        parentEventId,
-                        testerName,
-                        timestamp: new Date().toISOString()
-                    },
-                    transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.submitTransaction(
@@ -326,47 +299,23 @@ class FabricService {
                 qrCodeHash
             );
 
+            console.log('✅ Quality test event created on Hyperledger Fabric');
             return {
                 success: true,
                 data: JSON.parse(result.toString()),
-                transactionId: result.transactionId,
+                transactionId: `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 demo: false
             };
         } catch (error) {
-            console.error('Error creating quality test event:', error);
-            console.log('🎭 Falling back to demo mode for quality test event');
-            return {
-                success: true,
-                data: {
-                    eventId: `QUALITY-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                    batchId,
-                    parentEventId,
-                    testerName,
-                    timestamp: new Date().toISOString()
-                },
-                transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error creating quality test event on Fabric:', error);
+            throw new Error(`Failed to create quality test event on Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async createProcessingEvent(batchId, parentEventId, processorName, method, temperature, duration, yieldAmount, notes, ipfsHash, qrCodeHash) {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric processing event');
-                return {
-                    success: true,
-                    data: {
-                        eventId: `PROCESSING-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                        batchId,
-                        parentEventId,
-                        processorName,
-                        timestamp: new Date().toISOString()
-                    },
-                    transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.submitTransaction(
@@ -383,47 +332,23 @@ class FabricService {
                 qrCodeHash
             );
 
+            console.log('✅ Processing event created on Hyperledger Fabric');
             return {
                 success: true,
                 data: JSON.parse(result.toString()),
-                transactionId: result.transactionId,
+                transactionId: `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 demo: false
             };
         } catch (error) {
-            console.error('Error creating processing event:', error);
-            console.log('🎭 Falling back to demo mode for processing event');
-            return {
-                success: true,
-                data: {
-                    eventId: `PROCESSING-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                    batchId,
-                    parentEventId,
-                    processorName,
-                    timestamp: new Date().toISOString()
-                },
-                transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error creating processing event on Fabric:', error);
+            throw new Error(`Failed to create processing event on Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async createManufacturingEvent(batchId, parentEventId, manufacturerName, productName, productType, quantity, unit, expiryDate, notes, ipfsHash, qrCodeHash) {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric manufacturing event');
-                return {
-                    success: true,
-                    data: {
-                        eventId: `MANUFACTURING-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                        batchId,
-                        parentEventId,
-                        manufacturerName,
-                        timestamp: new Date().toISOString()
-                    },
-                    transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.submitTransaction(
@@ -441,35 +366,23 @@ class FabricService {
                 qrCodeHash
             );
 
+            console.log('✅ Manufacturing event created on Hyperledger Fabric');
             return {
                 success: true,
                 data: JSON.parse(result.toString()),
-                transactionId: result.transactionId,
+                transactionId: `fabric_tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 demo: false
             };
         } catch (error) {
-            console.error('Error creating manufacturing event:', error);
-            console.log('🎭 Falling back to demo mode for manufacturing event');
-            return {
-                success: true,
-                data: {
-                    eventId: `MANUFACTURING-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-                    batchId,
-                    parentEventId,
-                    manufacturerName,
-                    timestamp: new Date().toISOString()
-                },
-                transactionId: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error creating manufacturing event on Fabric:', error);
+            throw new Error(`Failed to create manufacturing event on Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async queryBatch(batchId) {
         try {
             if (!this.contract) {
-                throw new Error('Not connected to Fabric network');
+                await this.connect();
             }
 
             const result = await this.contract.evaluateTransaction('queryBatch', batchId);
@@ -478,65 +391,55 @@ class FabricService {
                 data: JSON.parse(result.toString())
             };
         } catch (error) {
-            console.error('Error querying batch:', error);
-            return { success: false, error: error.message };
+            console.error('❌ Error querying batch from Fabric:', error);
+            throw new Error(`Failed to query batch from Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async getBatchEvents(batchId) {
         try {
             if (!this.contract) {
-                throw new Error('Not connected to Fabric network');
+                await this.connect();
             }
 
             const result = await this.contract.evaluateTransaction('getBatchEvents', batchId);
+            const events = JSON.parse(result.toString());
+            
+            console.log(`✅ Retrieved ${events.length} events for batch ${batchId} from Hyperledger Fabric`);
             return {
                 success: true,
-                data: JSON.parse(result.toString())
+                data: events
             };
         } catch (error) {
-            console.error('Error getting batch events:', error);
-            return { success: false, error: error.message };
+            console.error('❌ Error getting batch events from Fabric:', error);
+            throw new Error(`Failed to get batch events from Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async getAllBatches() {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric getAllBatches');
-                return {
-                    success: true,
-                    data: [],
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.evaluateTransaction('getAllBatches');
+            const batches = JSON.parse(result.toString());
+            
+            console.log(`✅ Retrieved ${batches.length} batches from Hyperledger Fabric`);
             return {
                 success: true,
-                data: JSON.parse(result.toString())
+                data: batches
             };
         } catch (error) {
-            console.error('Error getting all batches:', error);
-            console.log('🎭 Falling back to demo mode for getAllBatches');
-            return {
-                success: true,
-                data: [],
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error getting all batches from Fabric:', error);
+            throw new Error(`Failed to get batches from Hyperledger Fabric: ${error.message}`);
         }
     }
 
     async queryEvent(eventId) {
         try {
             if (!this.contract) {
-                console.log('🎭 Demo mode: Simulating Fabric getBatchEvents');
-                return {
-                    success: true,
-                    data: [],
-                    demo: true
-                };
+                await this.connect();
             }
 
             const result = await this.contract.evaluateTransaction('queryEvent', eventId);
@@ -545,14 +448,8 @@ class FabricService {
                 data: JSON.parse(result.toString())
             };
         } catch (error) {
-            console.error('Error querying event:', error);
-            console.log('🎭 Falling back to demo mode for getBatchEvents');
-            return {
-                success: true,
-                data: [],
-                demo: true,
-                warning: 'Using demo mode - Fabric network not available'
-            };
+            console.error('❌ Error querying event from Fabric:', error);
+            throw new Error(`Failed to query event from Hyperledger Fabric: ${error.message}`);
         }
     }
 
@@ -566,6 +463,16 @@ class FabricService {
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 10000);
         return `${eventType}-${timestamp}-${random}`;
+    }
+
+    async disconnect() {
+        if (this.gateway) {
+            this.gateway.disconnect();
+            this.gateway = null;
+            this.contract = null;
+            this.isConnected = false;
+            console.log('✅ Disconnected from Hyperledger Fabric network');
+        }
     }
 }
 

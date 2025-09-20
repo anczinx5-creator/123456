@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff, Server, AlertTriangle, Link } from 'lucide-react';
+import { Server, AlertTriangle, Link, XCircle } from 'lucide-react';
 import blockchainService from '../../services/blockchainService';
 
 const ConnectionStatus: React.FC = () => {
@@ -14,17 +14,21 @@ const ConnectionStatus: React.FC = () => {
 
   const checkConnection = async () => {
     try {
-      await blockchainService.initialize();
+      const initResult = await blockchainService.initialize();
       const connectionStatus = blockchainService.getConnectionStatus();
       const fabricInfo = blockchainService.getFabricNetworkInfo();
-      setStatus(connectionStatus);
+      setStatus({
+        ...connectionStatus,
+        fabricInfo,
+        error: null
+      });
     } catch (error) {
       setStatus({
         initialized: false,
-        fabricInfo, // ✅ added missing comma here
+        fabricInfo: blockchainService.getFabricNetworkInfo(),
         backendAvailable: false,
         fabricConnected: false,
-        mode: 'offline',
+        mode: 'error',
         network: 'hyperledger-fabric',
         error: (error as Error).message,
       });
@@ -39,7 +43,7 @@ const ConnectionStatus: React.FC = () => {
         className={`p-3 rounded-lg shadow-lg border cursor-pointer transition-all duration-200 ${
           status.fabricConnected 
             ? 'bg-green-50 border-green-200 hover:bg-green-100' 
-            : 'bg-yellow-50 border-yellow-200 hover:bg-yellow-100'
+            : 'bg-red-50 border-red-200 hover:bg-red-100'
         }`}
         onClick={() => setShowDetails(!showDetails)}
       >
@@ -47,12 +51,12 @@ const ConnectionStatus: React.FC = () => {
           {status.fabricConnected ? (
             <Link className="h-5 w-5 text-green-600" />
           ) : (
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            <XCircle className="h-5 w-5 text-red-600" />
           )}
           <span className={`text-sm font-medium ${
-            status.fabricConnected ? 'text-green-700' : 'text-yellow-700'
+            status.fabricConnected ? 'text-green-700' : 'text-red-700'
           }`}>
-            {status.fabricConnected ? 'Hyperledger Fabric Connected' : 'Demo Mode'}
+            {status.fabricConnected ? 'Hyperledger Fabric Connected' : 'Fabric Network Disconnected'}
           </span>
         </div>
 
@@ -66,8 +70,8 @@ const ConnectionStatus: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600">Hyperledger Fabric:</span>
-              <span className={status.fabricConnected ? 'text-green-600' : 'text-yellow-600'}>
-                {status.fabricConnected ? 'Connected' : 'Demo'}
+              <span className={status.fabricConnected ? 'text-green-600' : 'text-red-600'}>
+                {status.fabricConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -81,11 +85,16 @@ const ConnectionStatus: React.FC = () => {
               </div>
             )}
             {!status.fabricConnected && (
-              <div className="mt-2 p-2 bg-yellow-100 rounded text-yellow-800">
+              <div className="mt-2 p-2 bg-red-100 rounded text-red-800">
                 <div className="flex items-center space-x-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  <span>Start Hyperledger Fabric network for full functionality</span>
+                  <XCircle className="h-3 w-3" />
+                  <span>Fabric network required - run: ./network.sh up</span>
                 </div>
+                {status.error && (
+                  <div className="mt-1 text-xs text-red-700">
+                    {status.error}
+                  </div>
+                )}
               </div>
             )}
           </div>

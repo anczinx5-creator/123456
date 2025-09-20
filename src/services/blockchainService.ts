@@ -22,10 +22,11 @@ class BlockchainService {
       if (response.ok) {
         const data = await response.json();
         this.isBackendAvailable = true;
-        this.fabricConnected = data.success;
+        this.fabricConnected = data.success && data.fabricConnected;
         console.log('✅ Connected to Hyperledger Fabric network via backend');
       } else {
-        throw new Error('Hyperledger Fabric backend not available');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Hyperledger Fabric backend not available');
       }
     } catch (error) {
       console.error('❌ Hyperledger Fabric backend not available:', error);
@@ -40,9 +41,7 @@ class BlockchainService {
 
   async createBatch(userAddress: string, batchData: any) {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/blockchain/create-batch`, {
         method: 'POST',
@@ -73,9 +72,7 @@ class BlockchainService {
 
   async addQualityTestEvent(userAddress: string, eventData: any) {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/blockchain/add-quality-test`, {
         method: 'POST',
@@ -106,9 +103,7 @@ class BlockchainService {
 
   async addProcessingEvent(userAddress: string, eventData: any) {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/blockchain/add-processing`, {
         method: 'POST',
@@ -139,9 +134,7 @@ class BlockchainService {
 
   async addManufacturingEvent(userAddress: string, eventData: any) {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/blockchain/add-manufacturing`, {
         method: 'POST',
@@ -172,9 +165,7 @@ class BlockchainService {
 
   async getBatchEvents(batchId: string) {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/tracking/batch/${batchId}`, {
         headers: {
@@ -196,9 +187,7 @@ class BlockchainService {
 
   async getAllBatches() {
     try {
-      if (!this.isBackendAvailable || !this.fabricConnected) {
-        throw new Error('Hyperledger Fabric network not connected');
-      }
+      await this.initialize();
       
       const response = await fetch(`${this.baseUrl}/api/tracking/batches`, {
         headers: {

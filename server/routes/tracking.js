@@ -17,6 +17,9 @@ router.get('/batch/:eventId', async (req, res) => {
       });
     }
 
+    // Ensure Fabric connection
+    await fabricService.connect();
+
     // Try to find the batch containing this event
     let targetBatch = null;
     let batchEvents = [];
@@ -41,21 +44,27 @@ router.get('/batch/:eventId', async (req, res) => {
           
           for (const batch of batches) {
             const batchRecord = batch.Record || batch;
-            const eventsResult = await fabricService.getBatchEvents(batchRecord.batchId);
-            if (eventsResult.success && eventsResult.data.find(event => event.eventId === eventId)) {
-              targetBatch = batchRecord;
-              batchEvents = eventsResult.data;
-              break;
+            try {
+              const eventsResult = await fabricService.getBatchEvents(batchRecord.batchId);
+              if (eventsResult.success && eventsResult.data.find(event => event.eventId === eventId)) {
+                targetBatch = batchRecord;
+                batchEvents = eventsResult.data;
+                break;
+              }
+            } catch (error) {
+              console.warn(`Failed to get events for batch ${batchRecord.batchId}:`, error);
+              continue;
             }
           }
         }
       }
     } catch (fabricError) {
-      console.error('Fabric service error:', fabricError);
+      console.error('Hyperledger Fabric service error:', fabricError);
       return res.status(500).json({
         success: false,
         error: 'Failed to connect to Hyperledger Fabric network',
-        details: fabricError.message
+        details: fabricError.message,
+        instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
       });
     }
 
@@ -119,8 +128,9 @@ router.get('/batch/:eventId', async (req, res) => {
     console.error('Tracking error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get batch tracking information',
-      details: error.message
+      error: 'Failed to get batch tracking information from Hyperledger Fabric',
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -130,12 +140,16 @@ router.get('/path/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;
 
+    // Ensure Fabric connection
+    await fabricService.connect();
+
     // Get all batches to find the target event
     const batchesResult = await fabricService.getAllBatches();
     if (!batchesResult.success) {
       return res.status(500).json({
         success: false,
-        error: 'Failed to get batches from Fabric network'
+        error: 'Failed to get batches from Hyperledger Fabric network',
+        instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
       });
     }
     
@@ -144,21 +158,27 @@ router.get('/path/:eventId', async (req, res) => {
     let targetEvent = null;
 
     for (const batch of batches) {
-      const eventsResult = await fabricService.getBatchEvents(batch.Record.batchId);
-      if (!eventsResult.success) continue;
-      
-      const foundEvent = eventsResult.data.find(event => event.eventId === eventId);
-      if (foundEvent) {
-        targetBatch = batch.Record;
-        targetEvent = foundEvent;
-        break;
+      const batchRecord = batch.Record || batch;
+      try {
+        const eventsResult = await fabricService.getBatchEvents(batchRecord.batchId);
+        if (!eventsResult.success) continue;
+        
+        const foundEvent = eventsResult.data.find(event => event.eventId === eventId);
+        if (foundEvent) {
+          targetBatch = batchRecord;
+          targetEvent = foundEvent;
+          break;
+        }
+      } catch (error) {
+        console.warn(`Failed to get events for batch ${batchRecord.batchId}:`, error);
+        continue;
       }
     }
 
     if (!targetBatch || !targetEvent) {
       return res.status(404).json({
         success: false,
-        error: 'Event not found'
+        error: 'Event not found in Hyperledger Fabric network'
       });
     }
 
@@ -167,7 +187,7 @@ router.get('/path/:eventId', async (req, res) => {
     if (!eventsResult.success) {
       return res.status(500).json({
         success: false,
-        error: 'Failed to get batch events from Fabric network'
+        error: 'Failed to get batch events from Hyperledger Fabric network'
       });
     }
     
@@ -179,12 +199,21 @@ router.get('/path/:eventId', async (req, res) => {
     // Enhance path events with metadata
     const enhancedPath = await Promise.all(
       path.map(async (event) => {
-        const metadata = await ipfsService.getFile(event.ipfsHash);
+        let metadata = null;
+        if (event.ipfsHash) {
+          try {
+            const metadataResult = await ipfsService.getFile(event.ipfsHash);
+            metadata = metadataResult.success ? metadataResult.data : null;
+          } catch (error) {
+            console.warn('Failed to fetch IPFS metadata:', error);
+          }
+        }
         
         // Get participant information
         let participantInfo = null;
         for (const [address, user] of users.entries()) {
-          if (address.toLowerCase() === event.participant.toLowerCase()) {
+          const participantName = event.collectorName || event.testerName || event.processorName || event.manufacturerName;
+          if (user.name === participantName) {
             participantInfo = {
               name: user.name,
               organization: user.organization,
@@ -196,9 +225,9 @@ router.get('/path/:eventId', async (req, res) => {
 
         return {
           ...event,
-          metadata: metadata.success ? metadata.data : null,
+          metadata,
           participant: {
-            address: event.participant,
+            address: event.participant || 'unknown',
             info: participantInfo
           }
         };
@@ -218,8 +247,9 @@ router.get('/path/:eventId', async (req, res) => {
     console.error('Path tracking error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get event path',
-      details: error.message
+      error: 'Failed to get event path from Hyperledger Fabric',
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -229,11 +259,15 @@ router.get('/stats/:batchId', async (req, res) => {
   try {
     const { batchId } = req.params;
 
+    // Ensure Fabric connection
+    await fabricService.connect();
+
     const eventsResult = await fabricService.getBatchEvents(batchId);
     if (!eventsResult.success) {
       return res.status(500).json({
         success: false,
-        error: 'Failed to get batch events from Fabric network'
+        error: 'Failed to get batch events from Hyperledger Fabric network',
+        instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
       });
     }
     
@@ -241,7 +275,7 @@ router.get('/stats/:batchId', async (req, res) => {
     if (!events || events.length === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Batch not found'
+        error: 'Batch not found in Hyperledger Fabric network'
       });
     }
 
@@ -252,12 +286,15 @@ router.get('/stats/:batchId', async (req, res) => {
       return acc;
     }, {});
 
-    const participants = [...new Set(events.map(event => event.participant))];
+    const participants = [...new Set(events.map(event => 
+      event.collectorName || event.testerName || event.processorName || event.manufacturerName
+    ))];
+    
+    const timestamps = events.map(event => new Date(event.timestamp).getTime());
     const timeSpan = {
-      start: Math.min(...events.map(event => event.timestamp)),
-      end: Math.max(...events.map(event => event.timestamp)),
-      duration: Math.max(...events.map(event => event.timestamp)) - 
-                Math.min(...events.map(event => event.timestamp))
+      start: Math.min(...timestamps),
+      end: Math.max(...timestamps),
+      duration: Math.max(...timestamps) - Math.min(...timestamps)
     };
 
     // Build branching statistics
@@ -278,88 +315,71 @@ router.get('/stats/:batchId', async (req, res) => {
     console.error('Stats error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get batch statistics',
-      details: error.message
+      error: 'Failed to get batch statistics from Hyperledger Fabric',
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
 
-// Get all active batches (admin endpoint)
+// Get all active batches
 router.get('/batches', async (req, res) => {
   try {
-    try {
-      const batchesResult = await fabricService.getAllBatches();
-      if (!batchesResult.success) {
-        throw new Error('Failed to get batches from Fabric network');
-      }
-      
-      const batches = batchesResult.data || [];
-      
-      // Enhance with basic event statistics
-      const enhancedBatches = await Promise.all(
-        batches.map(async (batch) => {
-          const batchRecord = batch.Record || batch;
-          const batchId = batchRecord.batchId;
-          
-          let events = [];
-          try {
-            const eventsResult = await fabricService.getBatchEvents(batchId);
-            events = eventsResult.success ? eventsResult.data : [];
-          } catch (error) {
-            console.warn(`Failed to get events for batch ${batchId}:`, error);
-          }
-          
-          return {
-            batchId: batchId,
-            herbSpecies: batchRecord.herbSpecies || 'Unknown',
-            creator: batchRecord.creator || 'Unknown',
-            creationTime: batchRecord.creationTime || new Date().toISOString(),
-            lastUpdated: batchRecord.lastUpdated || new Date().toISOString(),
-            currentStatus: batchRecord.currentStatus || 'Unknown',
-            eventCount: events.length,
-            events: events,
-            participants: [...new Set(events.map(event => 
-              event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown'
-            ))].length
-          };
-        })
-      );
+    // Ensure Fabric connection
+    await fabricService.connect();
 
-      res.json({
-        success: true,
-        batches: enhancedBatches
-      });
-    } catch (fabricError) {
-      console.error('Fabric service error:', fabricError);
-      
-      // Return demo data if Fabric is not available
-      const demoBatches = [
-        {
-          batchId: 'HERB-1234567890-1234',
-          herbSpecies: 'Ashwagandha',
-          creator: 'Demo Collector',
-          creationTime: new Date().toISOString(),
-          lastUpdated: new Date().toISOString(),
-          currentStatus: 'COLLECTED',
-          eventCount: 1,
-          events: [],
-          participants: 1
-        }
-      ];
-      
-      res.json({
-        success: true,
-        batches: demoBatches,
-        demo: true,
-        warning: 'Using demo data - Hyperledger Fabric network not available'
+    const batchesResult = await fabricService.getAllBatches();
+    if (!batchesResult.success) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to get batches from Hyperledger Fabric network',
+        instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
       });
     }
+    
+    const batches = batchesResult.data || [];
+    
+    // Enhance with basic event statistics
+    const enhancedBatches = await Promise.all(
+      batches.map(async (batch) => {
+        const batchRecord = batch.Record || batch;
+        const batchId = batchRecord.batchId;
+        
+        let events = [];
+        try {
+          const eventsResult = await fabricService.getBatchEvents(batchId);
+          events = eventsResult.success ? eventsResult.data : [];
+        } catch (error) {
+          console.warn(`Failed to get events for batch ${batchId}:`, error);
+        }
+        
+        return {
+          batchId: batchId,
+          herbSpecies: batchRecord.herbSpecies || 'Unknown',
+          creator: batchRecord.creator || 'Unknown',
+          creationTime: batchRecord.creationTime || new Date().toISOString(),
+          lastUpdated: batchRecord.lastUpdated || new Date().toISOString(),
+          currentStatus: batchRecord.currentStatus || 'Unknown',
+          eventCount: events.length,
+          events: events,
+          participants: [...new Set(events.map(event => 
+            event.collectorName || event.testerName || event.processorName || event.manufacturerName || 'Unknown'
+          ))].length
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      batches: enhancedBatches
+    });
   } catch (error) {
     console.error('Batches error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get batches',
-      details: error.message
+      error: 'Failed to get batches from Hyperledger Fabric',
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -422,10 +442,10 @@ function findEventPath(events, targetEventId) {
 // Helper function to get event type name
 function getEventTypeName(eventType) {
   const types = {
-    0: 'Collection',
-    1: 'Quality Test',
-    2: 'Processing',
-    3: 'Manufacturing'
+    'COLLECTION': 'Collection',
+    'QUALITY_TEST': 'Quality Test',
+    'PROCESSING': 'Processing',
+    'MANUFACTURING': 'Manufacturing'
   };
   return types[eventType] || 'Unknown';
 }

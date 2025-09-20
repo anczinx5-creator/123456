@@ -38,6 +38,9 @@ const AuditLog: React.FC = () => {
     try {
       setError('');
       
+      // Initialize blockchain service first
+      await blockchainService.initialize();
+      
       // Get all batches first
       const response = await fetch('http://localhost:5000/api/tracking/batches', {
         headers: {
@@ -105,7 +108,7 @@ const AuditLog: React.FC = () => {
       setAuditEntries(entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
     } catch (error) {
       console.error('Error fetching audit log:', error);
-      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
+      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up`);
     } finally {
       setLoading(false);
     }

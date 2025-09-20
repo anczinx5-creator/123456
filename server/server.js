@@ -16,13 +16,23 @@ app.use(express.urlencoded({ extended: true }));
 async function testServices() {
   console.log('🔧 Testing external services...');
   
+  // Test Hyperledger Fabric connection
+  try {
+    const fabricService = require('./services/fabricService');
+    await fabricService.connect();
+    console.log('✅ Hyperledger Fabric network connection successful');
+  } catch (error) {
+    console.log('❌ Hyperledger Fabric network connection failed:', error.message);
+    console.log('💡 Please start the Fabric network using: cd fabric-network/scripts && ./network.sh up');
+  }
+  
   // Test IPFS/Pinata connection
   const ipfsTest = await ipfsService.testConnection();
   if (ipfsTest.success) {
     console.log('✅ IPFS/Pinata connection successful');
   } else {
-    console.log('⚠️  IPFS/Pinata connection failed:', ipfsTest.error);
-    console.log('💡 The server will continue in demo mode');
+    console.log('❌ IPFS/Pinata connection failed:', ipfsTest.error);
+    console.log('💡 Please configure Pinata API keys in .env file');
   }
 }
 

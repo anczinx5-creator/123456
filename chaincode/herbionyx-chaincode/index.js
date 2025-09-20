@@ -1,8 +1,6 @@
 'use strict';
 
-const HerbionYXContract = require('./HerbionYXContract');
-
-module.exports.contracts = [HerbionYXContract];
+const { Contract } = require('fabric-contract-api');
 
 class HerbionYXContract extends Contract {
 

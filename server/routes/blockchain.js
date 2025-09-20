@@ -12,6 +12,7 @@ router.post('/initialize', async (req, res) => {
       success: true,
       message: 'Hyperledger Fabric service connected successfully',
       network: 'hyperledger-fabric',
+      fabricConnected: result.success && !result.demo,
       result
     });
   } catch (error) {
@@ -19,7 +20,8 @@ router.post('/initialize', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to initialize Hyperledger Fabric service',
-      details: error.message
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -69,7 +71,8 @@ router.post('/create-batch', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to create batch on Hyperledger Fabric',
-      details: error.message
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -118,7 +121,8 @@ router.post('/add-quality-test', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to add quality test event to Hyperledger Fabric',
-      details: error.message
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -167,7 +171,8 @@ router.post('/add-processing', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to add processing event to Hyperledger Fabric',
-      details: error.message
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });
@@ -217,7 +222,8 @@ router.post('/add-manufacturing', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to add manufacturing event to Hyperledger Fabric',
-      details: error.message
+      details: error.message,
+      instruction: 'Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up'
     });
   }
 });

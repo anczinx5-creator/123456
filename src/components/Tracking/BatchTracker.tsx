@@ -19,6 +19,9 @@ const BatchTracker: React.FC = () => {
     setTrackingResult(null);
 
     try {
+      // Initialize blockchain service first
+      await blockchainService.initialize();
+      
       // Try to get batch data from backend API
       const response = await fetch(`http://localhost:5000/api/tracking/batch/${searchQuery}`, {
         headers: {
@@ -66,7 +69,7 @@ const BatchTracker: React.FC = () => {
       });
     } catch (error) {
       console.error('Tracking error:', error);
-      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
+      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running.`);
     } finally {
       setLoading(false);
     }

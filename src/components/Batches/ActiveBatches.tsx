@@ -30,6 +30,9 @@ const ActiveBatches: React.FC = () => {
 
   const fetchActiveBatches = async () => {
     try {
+      // Initialize blockchain service first
+      await blockchainService.initialize();
+      
       const response = await fetch('http://localhost:5000/api/tracking/batches', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
@@ -60,7 +63,7 @@ const ActiveBatches: React.FC = () => {
       setBatches(transformedBatches);
     } catch (error) {
       console.error('Error fetching active batches:', error);
-      setError('Failed to connect to Hyperledger Fabric backend. Please ensure the server is running.');
+      setError(`Failed to connect to Hyperledger Fabric: ${error.message}. Please ensure the Fabric network is running: cd fabric-network/scripts && ./network.sh up`);
     } finally {
       setLoading(false);
     }
