@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useEffect } from 'react';
-import { TestTube, Upload, AlertCircle, CheckCircle, Loader2, QrCode, MapPin, Plus, X } from 'lucide-react';
+import { TestTube, Upload, AlertCircle, CheckCircle, Loader2, QrCode, MapPin, Plus, X, Camera } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import blockchainService from '../../services/blockchainService';
 import ipfsService from '../../services/ipfsService';
 import qrService from '../../services/qrService';
 import QRCodeDisplay from '../Common/QRCodeDisplay';
+import QRScanner from '../Common/QRScanner';
 
 const QualityTestForm: React.FC = () => {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ const QualityTestForm: React.FC = () => {
   const [qrResult, setQrResult] = useState<any>(null);
   const [location, setLocation] = useState<any>(null);
   const [customParameters, setCustomParameters] = useState<Array<{name: string, value: string}>>([]);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const [formData, setFormData] = useState({
     batchId: '',
@@ -82,6 +84,17 @@ const QualityTestForm: React.FC = () => {
         image: file
       }));
     }
+  };
+
+  const handleQRScanSuccess = (qrData: any) => {
+    setFormData(prev => ({
+      ...prev,
+      batchId: qrData.batchId || '',
+      parentEventId: qrData.eventId || '',
+      qrCode: JSON.stringify(qrData)
+    }));
+    setShowQRScanner(false);
+    setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -305,75 +318,86 @@ const QualityTestForm: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-blue-700 mb-2">
-                Scan QR Code from Previous Step (auto-fills batch and parent event)
+                QR Code from Previous Step (auto-fills batch and parent event)
               </label>
+              <div className="space-y-2">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    name="qrCode"
+                    value={formData.qrCode}
+                    onChange={handleInputChange}
+                    placeholder="Paste QR code JSON data or scan QR image"
+                    className="flex-1 px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowQRScanner(true)}
+                    className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2"
+                  >
+                    <Camera className="h-5 w-5" />
+                    <span>Scan</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (formData.qrCode) {
+                        try {
+                          const qrData = JSON.parse(formData.qrCode);
+                          setFormData(prev => ({
+                            ...prev,
+                            batchId: qrData.batchId || '',
+                            parentEventId: qrData.eventId || ''
+                          }));
+                        } catch (error) {
+                          setError('Invalid QR code format');
+                        }
+                      }
+                    }}
+                    className="px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                  >
+                    <QrCode className="h-5 w-5" />
+                  </button>
+                </div>
+                {formData.qrCode && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-xs text-blue-700">
+                      QR Code detected - Batch and Parent Event will be auto-filled
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
               <div className="flex space-x-2">
                 <input
-                  type="text"
-                  name="qrCode"
-                  value={formData.qrCode}
+                  type="text" 
+                  name="batchId"
+                  value={formData.batchId}
                   onChange={handleInputChange}
-                  placeholder="Paste QR code JSON data from collection step"
+                  required
+                  placeholder="HERB-1234567890-1234"
                   className="flex-1 px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (formData.qrCode) {
-                      try {
-                        const qrData = JSON.parse(formData.qrCode);
-                        setFormData(prev => ({
-                          ...prev,
-                          batchId: qrData.batchId || '',
-                          parentEventId: qrData.eventId || ''
-                        }));
-                      } catch (error) {
-                        setError('Invalid QR code format');
-                      }
-                    }
-                  }}
-                  className="px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                >
-                  <QrCode className="h-5 w-5" />
-                </button>
+                <input
+                  type="text"
+                  name="parentEventId"
+                  value={formData.parentEventId}
+                  onChange={handleInputChange}
+                  required
+                  placeholder="COLLECTION-1234567890-1234"
+                  className="flex-1 px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
-              {formData.qrCode && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs text-blue-700">
-                    QR Code detected - Batch and Parent Event will be auto-filled
-                  </p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mt-1">
+                <div>
+                  <span className="font-medium">Batch ID *</span>
                 </div>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-blue-700 mb-2">
-                Batch ID *
-              </label>
-              <input
-                type="text"
-                name="batchId"
-                value={formData.batchId}
-                onChange={handleInputChange}
-                required
-                placeholder="HERB-1234567890-1234"
-                className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-blue-700 mb-2">
-                Parent Event ID *
-              </label>
-              <input
-                type="text"
-                name="parentEventId"
-                value={formData.parentEventId}
-                onChange={handleInputChange}
-                required
-                placeholder="COLLECTION-1234567890-1234"
-                className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                <div>
+                  <span className="font-medium">Parent Event ID *</span>
+                </div>
+              </div>
             </div>
 
             <div>
@@ -619,6 +643,15 @@ const QualityTestForm: React.FC = () => {
             )}
           </button>
         </form>
+
+        {/* QR Scanner Modal */}
+        {showQRScanner && (
+          <QRScanner
+            title="Scan QR Code from Previous Step"
+            onScanSuccess={handleQRScanSuccess}
+            onClose={() => setShowQRScanner(false)}
+          />
+        )}
       </div>
     </div>
   );

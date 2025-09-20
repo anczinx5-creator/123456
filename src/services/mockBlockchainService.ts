@@ -40,8 +40,9 @@ class MockBlockchainService {
 
   private loadFromStorage() {
     try {
-      const batchesData = localStorage.getItem('herbionyx_batches');
-      const eventsData = localStorage.getItem('herbionyx_events');
+      // Try sessionStorage first for cross-tab data, then localStorage
+      const batchesData = sessionStorage.getItem('herbionyx_batches') || localStorage.getItem('herbionyx_batches');
+      const eventsData = sessionStorage.getItem('herbionyx_events') || localStorage.getItem('herbionyx_events');
       
       if (batchesData) {
         const batches = JSON.parse(batchesData);
@@ -67,6 +68,10 @@ class MockBlockchainService {
       localStorage.setItem('herbionyx_batches', JSON.stringify(Object.fromEntries(this.batches)));
       localStorage.setItem('herbionyx_events', JSON.stringify(Object.fromEntries(this.events)));
       localStorage.setItem('herbionyx_block_number', this.blockNumber.toString());
+      
+      // Also save to sessionStorage for cross-tab access
+      sessionStorage.setItem('herbionyx_batches', JSON.stringify(Object.fromEntries(this.batches)));
+      sessionStorage.setItem('herbionyx_events', JSON.stringify(Object.fromEntries(this.events)));
     } catch (error) {
       console.warn('Failed to save to storage:', error);
     }
@@ -643,7 +648,7 @@ class MockBlockchainService {
   getAuditTrail() {
     return Array.from(this.events.values()).map(event => ({
       id: event.eventId,
-      transactionId: event.transactionId,
+      transactionId: `fabric_${this.generateHash(event.eventId + event.timestamp)}`,
       blockNumber: event.blockNumber,
       timestamp: event.timestamp,
       eventType: event.eventType,
@@ -651,14 +656,14 @@ class MockBlockchainService {
       participant: event.participant,
       organization: event.organization,
       status: event.status,
-      gasUsed: event.gasUsed,
+      gasUsed: Math.floor(Math.random() * 100000) + 50000,
       fabricDetails: {
         channelId: 'herbionyx-channel',
         chaincodeId: 'herbionyx-chaincode',
         endorsingPeers: ['peer0.org1.herbionyx.com'],
         mspId: 'Org1MSP'
       }
-    }));
+    })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   // Get SMS notifications

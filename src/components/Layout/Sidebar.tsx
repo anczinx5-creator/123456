@@ -24,17 +24,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
   const { user } = useAuth();
 
   const getMenuItems = () => {
-    const commonItems = [
+    // Common items for all roles except consumer
+    const commonItems = user?.role !== 6 ? [
       { id: 'tracking', label: 'Track Batch', icon: Search },
       { id: 'batches', label: 'Active Batches', icon: List },
       { id: 'audit', label: 'Audit Log', icon: FileText },
-      { id: 'sms', label: 'SMS Simulator', icon: MessageSquare }
-    ];
+    ] : [];
+
+    // SMS Simulator only for collectors
+    const smsItem = user?.role === 1 ? [{ id: 'sms', label: 'SMS Simulator', icon: MessageSquare }] : [];
 
     if (user?.role === 1) { // Collector
       return [
         { id: 'collection', label: 'Collector Group', icon: Sprout },
-        ...commonItems
+        ...commonItems,
+        ...smsItem
       ];
     }
 
@@ -62,7 +66,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, activeTab, onTabChange }) => 
     // Consumer role (role 6)
     return [
       { id: 'consumer', label: 'Verify Product', icon: Shield },
-      { id: 'rating', label: 'Rate Platform', icon: BarChart3 }
+      { id: 'rating', label: 'Rate Platform', icon: BarChart3 },
+      { id: 'tracking', label: 'Track Batch', icon: Search }
     ];
   };
 
