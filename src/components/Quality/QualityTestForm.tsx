@@ -333,7 +333,7 @@ const QualityTestForm: React.FC = () => {
                 >
                   {qrResult.testResults.purity >= 95 && qrResult.testResults.pesticideLevel <= 0.1
                     ? 'PASSED'
-                    : 'REQUIRES ATTENTION'}
+                    : 'COLLECTED'}
                 </p>
               </div>
             </div>
