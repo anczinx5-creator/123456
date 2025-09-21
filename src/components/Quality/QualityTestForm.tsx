@@ -55,10 +55,9 @@ const QualityTestForm: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [qrResult, setQrResult] = useState<QRResult | null>(null);
   const [location, setLocation] = useState<LocationData | null>(null);
+  const [locationLoading, setLocationLoading] = useState<boolean>(false);
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [showQRScanner, setShowQRScanner] = useState<boolean>(false);
-  const [location, setLocation] = useState<LocationData | null>(null);
-  const [locationLoading, setLocationLoading] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<FormData>({
     batchId: '',
@@ -102,26 +101,6 @@ const QualityTestForm: React.FC = () => {
     }
   };
 
-  const getCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLocation({
-            latitude: position.coords.latitude.toString(),
-            longitude: position.coords.longitude.toString(),
-            timestamp: new Date().toISOString(),
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          setError('Unable to get location. Please ensure location services are enabled.');
-        }
-      );
-    } else {
-      setError('Geolocation is not supported by this browser.');
-    }
-  };
-
   const addCustomParameter = () => {
     setCustomParameters([...customParameters, { name: '', value: '' }]);
   };
@@ -153,6 +132,7 @@ const QualityTestForm: React.FC = () => {
         ...prev,
         image: file,
       }));
+      setError('');
     } else {
       setError('Please upload a valid image file (PNG, JPG, JPEG).');
     }
@@ -182,6 +162,9 @@ const QualityTestForm: React.FC = () => {
       if (!formData.moistureContent || !formData.purity || !formData.pesticideLevel) {
         throw new Error('Please fill in all required test result fields.');
       }
+      if (!formData.labName || !formData.testerName || !formData.testDate) {
+        throw new Error('Please fill in all required fields (Lab Name, Tester Name, Test Date).');
+      }
 
       // Verify the batch exists
       try {
@@ -195,11 +178,10 @@ const QualityTestForm: React.FC = () => {
       let imageHash: string | null = null;
       if (formData.image) {
         const imageUpload = await ipfsService.uploadFile(formData.image);
-        if (imageUpload.success) {
-          imageHash = imageUpload.ipfsHash;
-        } else {
+        if (!imageUpload.success) {
           throw new Error('Failed to upload image to IPFS.');
         }
+        imageHash = imageUpload.ipfsHash;
       }
 
       // Create test metadata
@@ -408,6 +390,13 @@ const QualityTestForm: React.FC = () => {
           </div>
         )}
 
+        {locationLoading && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center space-x-2" role="status">
+            <Loader2 className="h-5 w-5 text-blue-600 animate-spin" aria-hidden="true" />
+            <p className="text-blue-700">Fetching location...</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6" aria-label="Quality Test Form">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2 flex justify-center">
@@ -556,6 +545,7 @@ const QualityTestForm: React.FC = () => {
                 required
                 className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 aria-required="true"
+                max={new Date().toISOString().split('T')[0]} // Prevent future dates
               />
             </div>
 
@@ -578,7 +568,7 @@ const QualityTestForm: React.FC = () => {
           </div>
 
           {/* Location Info */}
-          {location && (
+          {location && !locationLoading && (
             <div
               className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200"
               aria-label="Test Location Information"
@@ -707,7 +697,7 @@ const QualityTestForm: React.FC = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || locationLoading}
             className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-4 px-6 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             aria-label="Record test results"
           >
