@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import { QrCode, Shield, Leaf, Award, MapPin, Calendar } from 'lucide-react';
 import blockchainService from '../../services/blockchainService';
 import ipfsService from '../../services/ipfsService';
