@@ -226,6 +226,7 @@ const CollectionForm: React.FC = () => {
       const blockchainData = {
         batchId,
         herbSpecies: formData.herbSpecies,
+        collectorName: formData.collectorGroupName,
         collectionEventId,
         ipfsHash: metadataUpload.data.ipfsHash,
         location: {

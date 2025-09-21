@@ -121,7 +121,7 @@ class MockBlockchainService {
       eventType: 'COLLECTION',
       batchId,
       timestamp: new Date().toISOString(),
-      participant: batchData.collectorName || 'Unknown Collector',
+      participant: batchData.collectorName || batchData.collectorGroupName || 'Unknown Collector',
       organization: 'Collector Group',
       data: {
         herbSpecies: batchData.herbSpecies,
@@ -142,7 +142,7 @@ class MockBlockchainService {
     const batch: Batch = {
       batchId,
       herbSpecies: batchData.herbSpecies,
-      creator: batchData.collectorName || 'Unknown',
+      creator: batchData.collectorName || batchData.collectorGroupName || 'Unknown',
       creationTime: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
       currentStatus: 'COLLECTED',

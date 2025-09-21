@@ -497,34 +497,18 @@ const ProcessingForm: React.FC = () => {
                 name="processorName"
                 value={formData.processorName}
                 onChange={handleInputChange}
+              <input
+                type="text" 
+                name="batchId"
+                value={formData.batchId}
+                onChange={handleInputChange}
                 required
-                placeholder="Enter processor name"
+                placeholder="Enter Batch ID (HERB-1234567890-1234)"
                 className="w-full px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
               />
-            </div>
-          </div>
-
-          {/* Location Info */}
-          {location && (
-            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200">
-              <h3 className="text-sm font-semibold text-purple-800 mb-2 flex items-center">
-                <MapPin className="h-4 w-4 mr-2" />
-                Processing Location & Timestamp
-              </h3>
-              <div className="grid grid-cols-3 gap-4 text-xs">
-                <div>
-                  <span className="font-medium text-purple-600">Latitude:</span>
-                  <p className="text-purple-900">{parseFloat(location.latitude).toFixed(6)}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-purple-600">Longitude:</span>
-                  <p className="text-purple-900">{parseFloat(location.longitude).toFixed(6)}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-purple-600">Timestamp:</span>
-                  <p className="text-purple-900">{new Date(location.timestamp).toLocaleString()}</p>
-                </div>
-              </div>
+              <p className="text-xs text-purple-600 mt-1">
+                Enter the Batch ID from the quality test stage
+              </p>
             </div>
           )}
 
