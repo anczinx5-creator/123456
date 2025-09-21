@@ -54,16 +54,18 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ qrData, title, subtitle }
       <div className="text-center mb-6">
         <h3 className="text-xl font-bold text-green-800 mb-2">{title}</h3>
         <p className="text-green-600">{subtitle}</p>
+        <p className="text-green-500 text-sm mt-2">✅ Real QR Code - Scannable with any QR scanner app</p>
       </div>
 
       {/* QR Code */}
       <div className="flex justify-center mb-6">
-        <div className="bg-white p-4 rounded-xl shadow-lg border border-green-100">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-green-100">
           <img 
             src={qrData.dataURL} 
             alt={title}
-            className="w-48 h-48 block"
+            className="w-64 h-64 block"
           />
+          <p className="text-center text-xs text-gray-500 mt-2">Scan with phone camera or QR app</p>
         </div>
       </div>
 

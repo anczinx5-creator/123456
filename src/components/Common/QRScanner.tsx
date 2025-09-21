@@ -81,55 +81,25 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose, title = "
     
     // Try to get real data from blockchain service first
     try {
-      const allBatches = await blockchainService.getAllBatches();
+      const allBatches = await (window as any).blockchainService?.getAllBatches() || [];
       if (allBatches.length > 0) {
         // Get the most recent batch for demo
         const latestBatch = allBatches[0];
         const latestEvent = latestBatch.events[latestBatch.events.length - 1];
         
-        return JSON.stringify({
-          type: latestEvent.eventType.toLowerCase(),
-          batchId: latestBatch.batchId,
-          eventId: latestEvent.eventId,
-          herbSpecies: latestBatch.herbSpecies,
-          participant: latestEvent.participant
-        });
+        // Return a tracking URL instead of JSON for real QR scanning
+        return `${window.location.origin}/track/${latestEvent.eventId}`;
       }
     } catch (error) {
       console.warn('Could not get real batch data, using demo data');
     }
     
-    // Fallback to filename-based demo data
+    // Fallback to tracking URL based on filename
     const filename = file.name.toLowerCase();
+    const eventId = `DEMO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     
-    if (filename.includes('collection') || filename.includes('herb')) {
-      return JSON.stringify({
-        type: 'collection',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'COLLECTION-1234567890-1234',
-        herbSpecies: 'Ashwagandha',
-        collector: 'Demo Collector'
-      });
-    } else if (filename.includes('test') || filename.includes('quality')) {
-      return JSON.stringify({
-        type: 'quality_test',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'TEST-1234567890-1234',
-        parentEventId: 'COLLECTION-1234567890-1234',
-        tester: 'Demo Tester'
-      });
-    } else if (filename.includes('process')) {
-      return JSON.stringify({
-        type: 'processing',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'PROCESS-1234567890-1234',
-        parentEventId: 'TEST-1234567890-1234',
-        processor: 'Demo Processor'
-      });
-    }
-    
-    // Return null if no real data and no matching filename
-    return null;
+    // Always return a tracking URL for consistency
+    return `${window.location.origin}/track/${eventId}`;
   };
 
   const handleDrop = (e: React.DragEvent) => {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Package, Upload, AlertCircle, CheckCircle, Loader2, QrCode, Award, Camera } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Package, Upload, AlertCircle, CheckCircle, Loader2, QrCode, Award, Camera, MapPin } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import blockchainService from '../../services/blockchainService';
 import ipfsService from '../../services/ipfsService';
@@ -14,6 +14,8 @@ const ManufacturingForm: React.FC = () => {
   const [error, setError] = useState('');
   const [qrResult, setQrResult] = useState<any>(null);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [location, setLocation] = useState<any>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     batchId: '',
@@ -26,6 +28,7 @@ const ManufacturingForm: React.FC = () => {
     manufactureDate: new Date().toISOString().split('T')[0],
     expiryDate: '',
     certificationId: '',
+    brandName: '',
     notes: '',
     manufacturerName: user?.name || '',
     image: null as File | null
@@ -53,6 +56,36 @@ const ManufacturingForm: React.FC = () => {
     'milliliters',
     'liters'
   ];
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude.toString(),
+            longitude: position.coords.longitude.toString(),
+            timestamp: new Date().toISOString(),
+            accuracy: position.coords.accuracy
+          });
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setError('Unable to get location. Please ensure location services are enabled.');
+          setLocationLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    } else {
+      setError('Geolocation is not supported by this browser.');
+      setLocationLoading(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -98,7 +131,13 @@ const ManufacturingForm: React.FC = () => {
       
       // Verify the batch exists
       try {
-        await blockchainService.getBatchInfo(formData.batchId);
+        const batchInfo = await blockchainService.getBatchInfo(formData.batchId);
+        
+        // Check if batch can accept manufacturing event
+        const canAdd = blockchainService.canAddEvent(formData.batchId, 'MANUFACTURING');
+        if (!canAdd.canAdd) {
+          throw new Error(canAdd.reason);
+        }
       } catch (error) {
         throw new Error(`Batch ${formData.batchId} not found. Please check the batch ID.`);
       }
@@ -126,6 +165,7 @@ const ManufacturingForm: React.FC = () => {
         manufactureDate: formData.manufactureDate,
         expiryDate: formData.expiryDate,
         certificationId: formData.certificationId,
+        brandName: formData.brandName,
         manufacturingDate: new Date().toISOString().split('T')[0],
         notes: formData.notes,
         images: imageHash ? [imageHash] : []
@@ -159,12 +199,14 @@ const ManufacturingForm: React.FC = () => {
         unit: formData.unit,
         expiryDate: formData.expiryDate,
         certificationId: formData.certificationId,
+        brandName: formData.brandName,
         notes: formData.notes,
         ipfsHash: metadataUpload.data.ipfsHash,
         location: {
-          latitude: '0',
-          longitude: '0',
-          zone: 'Manufacturing Facility'
+          latitude: location?.latitude || '0',
+          longitude: location?.longitude || '0',
+          zone: 'Manufacturing Facility',
+          address: 'Manufacturing Plant Location'
         },
         qrCodeHash: qrResult.qrHash
       };
@@ -205,6 +247,7 @@ const ManufacturingForm: React.FC = () => {
         manufactureDate: new Date().toISOString().split('T')[0],
         expiryDate: '',
         certificationId: '',
+        brandName: '',
         notes: '',
         manufacturerName: user?.name || '',
         image: null
@@ -464,6 +507,21 @@ const ManufacturingForm: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-orange-700 mb-2">
+                Brand Name *
+              </label>
+              <input
+                type="text"
+                name="brandName"
+                value={formData.brandName}
+                onChange={handleInputChange}
+                required
+                placeholder="Enter brand name"
+                className="w-full px-4 py-3 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-orange-700 mb-2">
                 Manufacturer Name *
               </label>
               <input
@@ -477,6 +535,30 @@ const ManufacturingForm: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Location Info */}
+          {location && (
+            <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-4 border border-orange-200">
+              <h3 className="text-sm font-semibold text-orange-800 mb-2 flex items-center">
+                <MapPin className="h-4 w-4 mr-2" />
+                Manufacturing Location & Timestamp
+              </h3>
+              <div className="grid grid-cols-3 gap-4 text-xs">
+                <div>
+                  <span className="font-medium text-orange-600">Latitude:</span>
+                  <p className="text-orange-900">{parseFloat(location.latitude).toFixed(6)}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-orange-600">Longitude:</span>
+                  <p className="text-orange-900">{parseFloat(location.longitude).toFixed(6)}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-orange-600">Timestamp:</span>
+                  <p className="text-orange-900">{new Date(location.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Image Upload */}
           <div>
