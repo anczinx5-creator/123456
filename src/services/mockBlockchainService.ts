@@ -485,7 +485,7 @@ class MockBlockchainService {
     localStorage.setItem('herbionyx_sms_notifications', JSON.stringify(notifications));
     
     // Show toast notification
-    this.showToastNotification(`SMS Sent: ${message.substring(0, 50)}...`);
+    this.showToastNotification(`Data Recorded: ${message.substring(0, 50)}...`);
   }
 
   private showToastNotification(message: string) {
