@@ -227,7 +227,7 @@ const CollectionForm: React.FC = () => {
         batchId,
         herbSpecies: formData.herbSpecies,
         collectorName: formData.collectorGroupName,
-        collectionEventId,
+        eventId: collectionEventId,
         ipfsHash: metadataUpload.data.ipfsHash,
         location: {
           latitude: location.latitude,
