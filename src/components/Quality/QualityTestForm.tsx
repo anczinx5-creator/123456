@@ -167,11 +167,18 @@ const QualityTestForm: React.FC = () => {
         batchId,
         eventId: testEventId,
         parentEventId,
+        testerName: formData.testerName,
+        moistureContent: parseFloat(formData.moistureContent),
+        purity: parseFloat(formData.purity),
+        pesticideLevel: parseFloat(formData.pesticideLevel),
+        testMethod: formData.testMethod,
+        customParameters: customParameters.filter(p => p.name && p.value),
+        notes: formData.notes,
         ipfsHash: metadataUpload.data.ipfsHash,
         location: {
-          latitude: '0',
-          longitude: '0',
-          zone: 'Laboratory'
+          latitude: location?.latitude || '0',
+          longitude: location?.longitude || '0',
+          zone: formData.labName || 'Laboratory'
         },
         qrCodeHash: qrResult.qrHash
       };

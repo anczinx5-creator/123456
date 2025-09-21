@@ -173,11 +173,18 @@ const ProcessingForm: React.FC = () => {
         batchId,
         eventId: processEventId,
         parentEventId,
+        processorName: formData.processorName,
+        method: formData.method,
+        temperature: formData.temperature ? parseFloat(formData.temperature) : null,
+        duration: formData.duration,
+        yield: parseFloat(formData.yield),
+        yieldPercentage: yieldPercentage,
+        notes: formData.notes,
         ipfsHash: metadataUpload.data.ipfsHash,
         location: {
-          latitude: '0',
-          longitude: '0',
-          zone: 'Processing Facility'
+          latitude: location?.latitude || '0',
+          longitude: location?.longitude || '0',
+          zone: formData.processingLocation || 'Processing Facility'
         },
         qrCodeHash: qrResult.qrHash
       };

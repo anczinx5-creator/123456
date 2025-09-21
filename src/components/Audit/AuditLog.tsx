@@ -188,13 +188,9 @@ const AuditLog: React.FC = () => {
                 </div>
                 
                 <div className="mt-3 flex space-x-2">
-                  <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 transition-colors">
-                    Copy Tx ID
-                  </button>
-                  <button className="px-3 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200 transition-colors flex items-center space-x-1">
-                    <ExternalLink className="h-3 w-3" />
-                    <span>View in Fabric Explorer</span>
-                  </button>
+                  <div class="text-xs text-gray-500">
+                    Transaction recorded on Hyperledger Fabric blockchain
+                  </div>
                 </div>
               </div>
             </div>

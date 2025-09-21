@@ -31,11 +31,8 @@ const ActiveBatches: React.FC = () => {
     try {
       const allBatches = await blockchainService.getAllBatches();
       
-      // Filter for active/ongoing batches only
-      const activeBatches = allBatches.filter((batch: any) => {
-        const status = batch.currentStatus;
-        return status !== 'MANUFACTURED' && status !== 'COMPLETED';
-      });
+      // Show all batches but mark completed ones
+      const activeBatches = allBatches;
 
       // Sort by last updated (most recent first)
       activeBatches.sort((a: any, b: any) => 
@@ -75,6 +72,7 @@ const ActiveBatches: React.FC = () => {
       case 'COLLECTED': return 'Ready for Quality Testing';
       case 'QUALITY_TESTED': return 'Ready for Processing';
       case 'PROCESSED': return 'Ready for Manufacturing';
+      case 'MANUFACTURED': return 'Supply Chain Complete';
       default: return 'In Progress';
     }
   };
@@ -165,7 +163,7 @@ const ActiveBatches: React.FC = () => {
             <p className="text-gray-600">
               {filter === 'accessible' 
                 ? 'No batches are currently accessible for your role'
-                : 'No active batches found. Create a new collection to get started.'
+                : 'No batches found. Create a new collection to get started.'
               }
             </p>
           </div>
@@ -175,7 +173,11 @@ const ActiveBatches: React.FC = () => {
               <div
                 key={batch.batchId}
                 className={`bg-white border-2 rounded-xl p-6 shadow-sm hover:shadow-md transition-all duration-200 ${
-                  canUserAccess(batch) ? 'border-green-200 hover:border-green-300' : 'border-gray-200'
+                  batch.currentStatus === 'MANUFACTURED' 
+                    ? 'border-green-200 bg-green-50' 
+                    : canUserAccess(batch) 
+                      ? 'border-blue-200 hover:border-blue-300' 
+                      : 'border-gray-200'
                 }`}
               >
                 {/* Header */}
@@ -247,7 +249,59 @@ const ActiveBatches: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="flex space-x-2 pt-2">
                     <button
-                      onClick={() => window.open(`/track/${batch.batchId}`, '_blank')}
+                      onClick={() => {
+                        // Show batch details in a modal or navigate to tracking
+                        const batchDetails = {
+                          ...batch,
+                          events: batch.events || []
+                        };
+                        
+                        // Create a detailed view modal
+                        const modal = document.createElement('div');
+                        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+                        modal.innerHTML = `
+                          <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-auto p-6">
+                            <div class="flex items-center justify-between mb-6">
+                              <h2 class="text-2xl font-bold text-gray-900">Batch Details: ${batch.herbSpecies}</h2>
+                              <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                              <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700">Batch ID</h3>
+                                <p class="font-mono text-sm">${batch.batchId}</p>
+                              </div>
+                              <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700">Status</h3>
+                                <p class="font-semibold ${batch.currentStatus === 'MANUFACTURED' ? 'text-green-600' : 'text-blue-600'}">${batch.currentStatus}</p>
+                              </div>
+                              <div class="bg-gray-50 p-4 rounded-lg">
+                                <h3 class="font-semibold text-gray-700">Events</h3>
+                                <p class="font-semibold">${batch.eventCount} completed</p>
+                              </div>
+                            </div>
+                            
+                            <div class="space-y-4">
+                              <h3 class="text-lg font-semibold">Supply Chain Journey</h3>
+                              ${batch.events.map((event: any, index: number) => `
+                                <div class="border-l-4 border-blue-500 pl-4 py-2">
+                                  <div class="flex items-center justify-between">
+                                    <h4 class="font-semibold">${event.eventType.replace('_', ' ')}</h4>
+                                    <span class="text-sm text-gray-500">${new Date(event.timestamp).toLocaleString()}</span>
+                                  </div>
+                                  <p class="text-gray-600">${event.participant} - ${event.organization}</p>
+                                  ${event.data ? `<p class="text-sm text-gray-500 mt-1">${JSON.stringify(event.data).substring(0, 100)}...</p>` : ''}
+                                </div>
+                              `).join('')}
+                            </div>
+                          </div>
+                        `;
+                        document.body.appendChild(modal);
+                      }}
                       className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium flex items-center justify-center space-x-1"
                     >
                       <Eye className="h-4 w-4" />
@@ -299,11 +353,11 @@ const ActiveBatches: React.FC = () => {
             </div>
             <div className="text-sm text-purple-600">Processed</div>
           </div>
-          <div className="bg-orange-50 rounded-lg p-4 text-center">
+          <div className="bg-green-50 rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-orange-800">
-              {batches.filter(b => canUserAccess(b)).length}
+              {batches.filter(b => b.currentStatus === 'MANUFACTURED').length}
             </div>
-            <div className="text-sm text-orange-600">Accessible</div>
+            <div className="text-sm text-orange-600">Completed</div>
           </div>
         </div>
       </div>
