@@ -18,6 +18,7 @@ const QualityTestForm: React.FC = () => {
   const [customParameters, setCustomParameters] = useState<Array<{name: string, value: string}>>([]);
   const [showQRScanner, setShowQRScanner] = useState(false);
 
+  const [formData, setFormData] = useState({
     batchId: '',
     labName: '',
     moistureContent: '',
