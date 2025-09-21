@@ -18,7 +18,6 @@ const QualityTestForm: React.FC = () => {
   const [customParameters, setCustomParameters] = useState<Array<{name: string, value: string}>>([]);
   const [showQRScanner, setShowQRScanner] = useState(false);
 
-  const [formData, setFormData] = useState({
     batchId: '',
     labName: '',
     moistureContent: '',
@@ -88,7 +87,7 @@ const QualityTestForm: React.FC = () => {
     console.log('QR Data received:', qrData);
     setFormData(prev => ({
       ...prev,
-      batchId: qrData.batchId || ''
+      batchId: qrData.batchId || '',
     }));
     setShowQRScanner(false);
     setError('');
@@ -160,7 +159,6 @@ const QualityTestForm: React.FC = () => {
       // Add event to blockchain
       const eventData = {
         batchId: formData.batchId,
-        eventId: testEventId,
         testerName: formData.testerName,
         moistureContent: parseFloat(formData.moistureContent),
         purity: parseFloat(formData.purity),
@@ -201,7 +199,6 @@ const QualityTestForm: React.FC = () => {
       
       // Reset form
       setFormData({
-        batchId: '',
         labName: '',
         moistureContent: '',
         purity: '',

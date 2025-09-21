@@ -17,7 +17,6 @@ const ManufacturingForm: React.FC = () => {
 
   const [formData, setFormData] = useState({
     batchId: '',
-    parentEventId: '',
     qrCode: '',
     lotNumber: '',
     productName: '',
@@ -153,7 +152,6 @@ const ManufacturingForm: React.FC = () => {
       // Add event to blockchain
       const eventData = {
         batchId: formData.batchId,
-        eventId: mfgEventId,
         manufacturerName: formData.manufacturerName,
         productName: formData.productName,
         productType: formData.productType,
@@ -199,7 +197,6 @@ const ManufacturingForm: React.FC = () => {
       
       // Reset form
       setFormData({
-        batchId: '',
         lotNumber: '',
         productName: '',
         productType: 'Herbal Product',
@@ -309,19 +306,20 @@ const ManufacturingForm: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-orange-700 mb-2">
-                QR Code from Processing (auto-fills batch and parent event)
-              </label>
-              <div className="space-y-2">
+            <div className="md:col-span-2 flex justify-center">
+              <div className="w-full max-w-md">
+                <label className="block text-sm font-medium text-orange-700 mb-2 text-center">
+                  Batch ID *
+                </label>
                 <div className="flex space-x-2">
                   <input
-                    type="text"
-                    name="qrCode"
-                    value={formData.qrCode}
+                    type="text" 
+                    name="batchId"
+                    value={formData.batchId}
                     onChange={handleInputChange}
-                    placeholder="Paste QR code JSON data or scan QR image"
-                    className="flex-1 px-4 py-3 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    required
+                    placeholder="HERB-1234567890-1234"
+                    className="flex-1 px-4 py-3 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-center"
                   />
                   <button
                     type="button"
@@ -331,65 +329,10 @@ const ManufacturingForm: React.FC = () => {
                     <Camera className="h-5 w-5" />
                     <span>Scan</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (formData.qrCode) {
-                        try {
-                          const qrData = JSON.parse(formData.qrCode);
-                          setFormData(prev => ({
-                            ...prev,
-                            batchId: qrData.batchId || '',
-                            parentEventId: qrData.eventId || ''
-                          }));
-                        } catch (error) {
-                          setError('Invalid QR code format');
-                        }
-                      }
-                    }}
-                    className="px-4 py-3 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors"
-                  >
-                    <QrCode className="h-5 w-5" />
-                  </button>
                 </div>
-                {formData.qrCode && (
-                  <div className="p-3 bg-orange-50 rounded-lg">
-                    <p className="text-xs text-orange-700">
-                      QR Code detected - Batch and Parent Event will be auto-filled
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="flex space-x-2">
-                <input
-                  type="text" 
-                  name="batchId"
-                  value={formData.batchId}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="HERB-1234567890-1234"
-                  className="flex-1 px-4 py-3 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  name="parentEventId"
-                  value={formData.parentEventId}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="PROCESS-1234567890-1234"
-                  className="flex-1 px-4 py-3 border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mt-1">
-                <div>
-                  <span className="font-medium">Batch ID *</span>
-                </div>
-                <div>
-                  <span className="font-medium">Parent Event ID *</span>
-                </div>
+                <p className="text-xs text-orange-600 mt-1 text-center">
+                  Enter the batch ID from the processing step or scan QR code
+                </p>
               </div>
             </div>
 
