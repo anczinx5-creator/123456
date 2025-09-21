@@ -168,12 +168,18 @@ class MockBlockchainService {
   async addQualityTestEvent(userAddress: string, eventData: any) {
     await this.simulateNetworkDelay();
     
-    const eventId = this.generateEventId('QUALITY_TEST');
+    // Check if batch already has a quality test event
     const batch = this.batches.get(eventData.batchId);
-    
     if (!batch) {
       throw new Error('Batch not found');
     }
+    
+    const hasQualityTest = batch.events.some(event => event.eventType === 'QUALITY_TEST');
+    if (hasQualityTest) {
+      throw new Error('This batch already has a quality test recorded. Only one quality test per batch is allowed.');
+    }
+
+    const eventId = this.generateEventId('QUALITY_TEST');
 
     const event: Event = {
       eventId,
@@ -221,12 +227,18 @@ class MockBlockchainService {
   async addProcessingEvent(userAddress: string, eventData: any) {
     await this.simulateNetworkDelay();
     
-    const eventId = this.generateEventId('PROCESSING');
+    // Check if batch already has a processing event
     const batch = this.batches.get(eventData.batchId);
-    
     if (!batch) {
       throw new Error('Batch not found');
     }
+    
+    const hasProcessing = batch.events.some(event => event.eventType === 'PROCESSING');
+    if (hasProcessing) {
+      throw new Error('This batch already has processing recorded. Only one processing step per batch is allowed.');
+    }
+
+    const eventId = this.generateEventId('PROCESSING');
 
     const event: Event = {
       eventId,
@@ -274,12 +286,18 @@ class MockBlockchainService {
   async addManufacturingEvent(userAddress: string, eventData: any) {
     await this.simulateNetworkDelay();
     
-    const eventId = this.generateEventId('MANUFACTURING');
+    // Check if batch already has a manufacturing event
     const batch = this.batches.get(eventData.batchId);
-    
     if (!batch) {
       throw new Error('Batch not found');
     }
+    
+    const hasManufacturing = batch.events.some(event => event.eventType === 'MANUFACTURING');
+    if (hasManufacturing) {
+      throw new Error('This batch is already manufactured. No further processing allowed.');
+    }
+
+    const eventId = this.generateEventId('MANUFACTURING');
 
     const event: Event = {
       eventId,
@@ -295,7 +313,9 @@ class MockBlockchainService {
         quantity: eventData.quantity,
         unit: eventData.unit,
         expiryDate: eventData.expiryDate,
-        certificationId: eventData.certificationId
+        certificationId: eventData.certificationId,
+        brandName: eventData.brandName,
+        manufacturingLocation: eventData.location
       },
       ipfsHash: eventData.ipfsHash || `Qm${Math.random().toString(36).substr(2, 44)}`,
       qrCodeHash: eventData.qrCodeHash || this.generateHash(`mfg-${eventId}`),
@@ -308,6 +328,7 @@ class MockBlockchainService {
     batch.events.push(event);
     batch.lastUpdated = new Date().toISOString();
     batch.currentStatus = 'MANUFACTURED';
+    batch.isCompleted = true; // Mark batch as completed
 
     this.events.set(eventId, event);
     this.batches.set(eventData.batchId, batch);
@@ -422,6 +443,26 @@ class MockBlockchainService {
         }))
       }
     };
+  }
+
+  // Check if batch can accept new events
+  canAddEvent(batchId: string, eventType: string): { canAdd: boolean; reason?: string } {
+    const batch = this.batches.get(batchId);
+    if (!batch) {
+      return { canAdd: false, reason: 'Batch not found' };
+    }
+
+    if (batch.isCompleted) {
+      return { canAdd: false, reason: 'Batch is completed after manufacturing. No more events can be added.' };
+    }
+
+    const existingEventTypes = batch.events.map(e => e.eventType);
+    
+    if (existingEventTypes.includes(eventType as any)) {
+      return { canAdd: false, reason: `This batch already has a ${eventType.toLowerCase().replace('_', ' ')} event.` };
+    }
+
+    return { canAdd: true };
   }
 
   generateBatchId(): string {

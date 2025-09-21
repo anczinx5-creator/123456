@@ -52,19 +52,27 @@ const ProcessingForm: React.FC = () => {
   }, [formData.inputWeight, formData.yield]);
 
   const getCurrentLocation = () => {
+    setLocationLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setLocation({
             latitude: position.coords.latitude.toString(),
             longitude: position.coords.longitude.toString(),
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            accuracy: position.coords.accuracy
           });
+          setLocationLoading(false);
         },
         (error) => {
           console.error('Error getting location:', error);
+          setError('Unable to get location. Please ensure location services are enabled.');
+          setLocationLoading(false);
         }
       );
+    } else {
+      setError('Geolocation is not supported by this browser.');
+      setLocationLoading(false);
     }
   };
 

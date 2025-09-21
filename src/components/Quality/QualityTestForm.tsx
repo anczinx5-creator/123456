@@ -57,6 +57,8 @@ const QualityTestForm: React.FC = () => {
   const [location, setLocation] = useState<LocationData | null>(null);
   const [customParameters, setCustomParameters] = useState<CustomParameter[]>([]);
   const [showQRScanner, setShowQRScanner] = useState<boolean>(false);
+  const [location, setLocation] = useState<LocationData | null>(null);
+  const [locationLoading, setLocationLoading] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<FormData>({
     batchId: '',
@@ -74,6 +76,31 @@ const QualityTestForm: React.FC = () => {
   useEffect(() => {
     getCurrentLocation();
   }, []);
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            latitude: position.coords.latitude.toString(),
+            longitude: position.coords.longitude.toString(),
+            timestamp: new Date().toISOString(),
+          });
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setError('Unable to get location. Please ensure location services are enabled.');
+          setLocationLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    } else {
+      setError('Geolocation is not supported by this browser.');
+      setLocationLoading(false);
+    }
+  };
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
