@@ -89,6 +89,7 @@ const ProcessingForm: React.FC = () => {
   };
 
   const handleQRScanSuccess = (qrData: any) => {
+    console.log('QR Data received:', qrData);
     setFormData(prev => ({
       ...prev,
       batchId: qrData.batchId || '',
@@ -111,11 +112,27 @@ const ProcessingForm: React.FC = () => {
       let parentEventId = formData.parentEventId;
 
       if (formData.qrCode) {
-        const qrData = qrService.parseQRData(formData.qrCode);
-        if (qrData.success) {
-          batchId = qrData.data.batchId;
-          parentEventId = qrData.data.eventId;
+        try {
+          const qrData = qrService.parseQRData(formData.qrCode);
+          if (qrData.success) {
+            batchId = qrData.data.batchId;
+            parentEventId = qrData.data.eventId;
+          }
+        } catch (error) {
+          console.warn('QR parsing failed, using manual input:', error);
         }
+      }
+      
+      // Validate that we have the required IDs
+      if (!batchId || !parentEventId) {
+        throw new Error('Batch ID and Parent Event ID are required. Please scan QR code or enter manually.');
+      }
+      
+      // Verify the parent event exists
+      try {
+        await blockchainService.getBatchInfo(parentEventId);
+      } catch (error) {
+        throw new Error(`Parent event ${parentEventId} not found. Please check the quality test QR code.`);
       }
 
       const processEventId = blockchainService.generateEventId('PROCESSING');

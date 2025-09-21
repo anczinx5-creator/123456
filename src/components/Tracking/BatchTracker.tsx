@@ -7,22 +7,40 @@ const BatchTracker: React.FC = () => {
   const [searchResult, setSearchResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Set up real-time updates
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      // Refresh current search if we have one
+      if (searchQuery && searchResult) {
+        handleSearch(new Event('submit') as any, true);
+      }
+    };
+    
+    window.addEventListener('herbionyx-data-update', handleDataUpdate);
+    return () => window.removeEventListener('herbionyx-data-update', handleDataUpdate);
+  }, [searchQuery, searchResult]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (e: React.FormEvent, skipFormCheck = false) => {
+    if (!skipFormCheck) {
+      e.preventDefault();
+      if (!searchQuery.trim()) return;
+    }
 
     setLoading(true);
     setError('');
-    setSearchResult(null);
+    if (!skipFormCheck) setSearchResult(null);
 
     try {
       // Try to get batch info by event ID or batch ID
-      const result = await blockchainService.getBatchInfo(searchQuery.trim());
+      const queryId = skipFormCheck ? searchQuery : searchQuery.trim();
+      const result = await blockchainService.getBatchInfo(queryId);
       setSearchResult(result.batch);
     } catch (error) {
       console.error('Search error:', error);
-      setError('Batch not found. Please check the Batch ID or Event ID.');
+      if (!skipFormCheck) {
+        setError('Batch not found. Please check the Batch ID or Event ID.');
+      }
     } finally {
       setLoading(false);
     }

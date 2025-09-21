@@ -35,14 +35,28 @@ class MockBlockchainService {
 
   constructor() {
     this.loadFromStorage();
-    this.generateSampleData();
+    // Set up real-time storage listener
+    this.setupStorageListener();
   }
 
+  private setupStorageListener() {
+    // Listen for storage changes from other tabs/sessions
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'herbionyx_batches' || e.key === 'herbionyx_events') {
+        this.loadFromStorage();
+      }
+    });
+    
+    // Also listen for custom events for same-tab updates
+    window.addEventListener('herbionyx-data-update', () => {
+      this.loadFromStorage();
+    });
+  }
   private loadFromStorage() {
     try {
-      // Try sessionStorage first for cross-tab data, then localStorage
-      const batchesData = sessionStorage.getItem('herbionyx_batches') || localStorage.getItem('herbionyx_batches');
-      const eventsData = sessionStorage.getItem('herbionyx_events') || localStorage.getItem('herbionyx_events');
+      // Use localStorage for persistent cross-session data
+      const batchesData = localStorage.getItem('herbionyx_batches');
+      const eventsData = localStorage.getItem('herbionyx_events');
       
       if (batchesData) {
         const batches = JSON.parse(batchesData);
@@ -69,9 +83,8 @@ class MockBlockchainService {
       localStorage.setItem('herbionyx_events', JSON.stringify(Object.fromEntries(this.events)));
       localStorage.setItem('herbionyx_block_number', this.blockNumber.toString());
       
-      // Also save to sessionStorage for cross-tab access
-      sessionStorage.setItem('herbionyx_batches', JSON.stringify(Object.fromEntries(this.batches)));
-      sessionStorage.setItem('herbionyx_events', JSON.stringify(Object.fromEntries(this.events)));
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('herbionyx-data-update'));
     } catch (error) {
       console.warn('Failed to save to storage:', error);
     }
@@ -328,6 +341,8 @@ class MockBlockchainService {
   }
 
   async getAllBatches() {
+    // Always reload from storage to get latest data
+    this.loadFromStorage();
     return Array.from(this.batches.values()).map(batch => ({
       batchId: batch.batchId,
       herbSpecies: batch.herbSpecies,
@@ -341,6 +356,11 @@ class MockBlockchainService {
   }
 
   async getBatchInfo(eventIdOrBatchId: string) {
+    // Always reload from storage to get latest data
+    this.loadFromStorage();
+    // Always reload from storage to get latest data
+    this.loadFromStorage();
+    
     // Try as batch ID first
     let batch = this.batches.get(eventIdOrBatchId);
     
@@ -349,6 +369,17 @@ class MockBlockchainService {
       const event = this.events.get(eventIdOrBatchId);
       if (event) {
         batch = this.batches.get(event.batchId);
+      }
+    }
+    
+    // If still not found, try partial matching for manufacturing events
+    if (!batch) {
+      // Look for any event that contains this ID as parent
+      for (const [eventId, event] of this.events.entries()) {
+        if (event.parentEventId === eventIdOrBatchId || eventId.includes(eventIdOrBatchId)) {
+          batch = this.batches.get(event.batchId);
+          if (batch) break;
+        }
       }
     }
 

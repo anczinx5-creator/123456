@@ -79,7 +79,27 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose, title = "
   const simulateQRReading = async (file: File): Promise<string | null> => {
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
     
-    // For demo, we'll check if filename contains batch info or return sample QR data
+    // Try to get real data from blockchain service first
+    try {
+      const allBatches = await blockchainService.getAllBatches();
+      if (allBatches.length > 0) {
+        // Get the most recent batch for demo
+        const latestBatch = allBatches[0];
+        const latestEvent = latestBatch.events[latestBatch.events.length - 1];
+        
+        return JSON.stringify({
+          type: latestEvent.eventType.toLowerCase(),
+          batchId: latestBatch.batchId,
+          eventId: latestEvent.eventId,
+          herbSpecies: latestBatch.herbSpecies,
+          participant: latestEvent.participant
+        });
+      }
+    } catch (error) {
+      console.warn('Could not get real batch data, using demo data');
+    }
+    
+    // Fallback to filename-based demo data
     const filename = file.name.toLowerCase();
     
     if (filename.includes('collection') || filename.includes('herb')) {
@@ -108,14 +128,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose, title = "
       });
     }
     
-    // Return a generic collection QR for any other image
-    return JSON.stringify({
-      type: 'collection',
-      batchId: 'HERB-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-      eventId: 'COLLECTION-' + Date.now() + '-' + Math.floor(Math.random() * 10000),
-      herbSpecies: 'Sample Herb',
-      collector: 'Sample Collector'
-    });
+    // Return null if no real data and no matching filename
+    return null;
   };
 
   const handleDrop = (e: React.DragEvent) => {

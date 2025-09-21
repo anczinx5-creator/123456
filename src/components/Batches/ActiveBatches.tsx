@@ -22,9 +22,21 @@ const ActiveBatches: React.FC = () => {
 
   useEffect(() => {
     fetchActiveBatches();
-    // Refresh every 10 seconds to show real-time updates
-    const interval = setInterval(fetchActiveBatches, 10000);
-    return () => clearInterval(interval);
+    
+    // Set up real-time updates
+    const handleDataUpdate = () => {
+      fetchActiveBatches();
+    };
+    
+    window.addEventListener('herbionyx-data-update', handleDataUpdate);
+    
+    // Also refresh every 5 seconds as backup
+    const interval = setInterval(fetchActiveBatches, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('herbionyx-data-update', handleDataUpdate);
+    };
   }, []);
 
   const fetchActiveBatches = async () => {

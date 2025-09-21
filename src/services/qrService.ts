@@ -91,10 +91,22 @@ class QRService {
 
   parseQRData(qrString: string) {
     try {
-      const qrData = JSON.parse(qrString);
+      let qrData;
       
-      if (!qrData.eventId || !qrData.type || !qrData.batchId) {
-        throw new Error('Invalid QR code format');
+      // Try to parse as JSON first
+      try {
+        qrData = JSON.parse(qrString);
+      } catch {
+        // If not JSON, treat as direct event ID
+        qrData = {
+          eventId: qrString.trim(),
+          type: 'direct_id',
+          batchId: qrString.trim()
+        };
+      }
+      
+      if (!qrData.eventId) {
+        throw new Error('Invalid QR code format - missing event ID');
       }
 
       return {

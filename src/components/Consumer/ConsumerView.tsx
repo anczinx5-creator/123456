@@ -9,23 +9,38 @@ const ConsumerView: React.FC = () => {
   const [productInfo, setProductInfo] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Set up real-time updates
+  useEffect(() => {
+    const handleDataUpdate = () => {
+      // Refresh current product info if we have one
+      if (qrInput && productInfo) {
+        handleQRScan(new Event('submit') as any, true);
+      }
+    };
+    
+    window.addEventListener('herbionyx-data-update', handleDataUpdate);
+    return () => window.removeEventListener('herbionyx-data-update', handleDataUpdate);
+  }, [qrInput, productInfo]);
 
-  const handleQRScan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!qrInput.trim()) return;
+  const handleQRScan = async (e: React.FormEvent, skipFormCheck = false) => {
+    if (!skipFormCheck) {
+      e.preventDefault();
+      if (!qrInput.trim()) return;
+    }
 
     setLoading(true);
-    setProductInfo(null);
+    if (!skipFormCheck) setProductInfo(null);
     setError('');
     
     try {
       // Parse QR code or event ID
-      let eventId = qrInput.trim();
+      let eventId = skipFormCheck ? qrInput : qrInput.trim();
       let batchId = '';
 
       // Try to parse as QR code JSON
       try {
-        const qrData = qrService.parseQRData(qrInput);
+        const qrData = qrService.parseQRData(eventId);
         if (qrData.success) {
           eventId = qrData.data.eventId;
           batchId = qrData.data.batchId;
@@ -54,7 +69,9 @@ const ConsumerView: React.FC = () => {
       setProductInfo(productInfo);
     } catch (error) {
       console.error('Consumer verification error:', error);
-      setError('Product not found. Please check the QR code or product ID.');
+      if (!skipFormCheck) {
+        setError('Product not found. Please check the QR code or product ID.');
+      }
     } finally {
       setLoading(false);
     }
