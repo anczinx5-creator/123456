@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Package, Eye, Calendar, User, MapPin, FileText, QrCode } from 'lucide-react';
 import blockchainService from '../../services/blockchainService';
 

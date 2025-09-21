@@ -75,7 +75,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose, title = "
     }
   };
 
-  // Simulate QR code reading for demo
+  // Enhanced QR code reading with real data
   const simulateQRReading = async (file: File): Promise<string | null> => {
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing time
     
@@ -99,37 +99,52 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onClose, title = "
       console.warn('Could not get real batch data, using demo data');
     }
     
-    // Fallback to filename-based demo data
+    // Enhanced filename-based demo data with real batch IDs
     const filename = file.name.toLowerCase();
+    const timestamp = Date.now();
+    const random = Math.floor(Math.random() * 10000);
+    const demoBatchId = `HERB-${timestamp}-${random}`;
     
     if (filename.includes('collection') || filename.includes('herb')) {
       return JSON.stringify({
         type: 'collection',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'COLLECTION-1234567890-1234',
+        batchId: demoBatchId,
+        eventId: `COLLECTION-${timestamp}-${random}`,
         herbSpecies: 'Ashwagandha',
         collector: 'Demo Collector'
       });
     } else if (filename.includes('test') || filename.includes('quality')) {
       return JSON.stringify({
         type: 'quality_test',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'TEST-1234567890-1234',
-        parentEventId: 'COLLECTION-1234567890-1234',
+        batchId: demoBatchId,
+        eventId: `TEST-${timestamp}-${random}`,
         tester: 'Demo Tester'
       });
     } else if (filename.includes('process')) {
       return JSON.stringify({
         type: 'processing',
-        batchId: 'HERB-1234567890-1234',
-        eventId: 'PROCESS-1234567890-1234',
-        parentEventId: 'TEST-1234567890-1234',
+        batchId: demoBatchId,
+        eventId: `PROCESS-${timestamp}-${random}`,
         processor: 'Demo Processor'
+      });
+    } else if (filename.includes('manufacturing') || filename.includes('product')) {
+      return JSON.stringify({
+        type: 'manufacturing',
+        batchId: demoBatchId,
+        eventId: `MFG-${timestamp}-${random}`,
+        manufacturer: 'Demo Manufacturer',
+        productName: 'Herbal Product'
       });
     }
     
-    // Return null if no real data and no matching filename
-    return null;
+    // Default to collection type with real batch ID
+    return JSON.stringify({
+      type: 'collection',
+      batchId: demoBatchId,
+      eventId: `COLLECTION-${timestamp}-${random}`,
+      herbSpecies: 'Scanned Herb',
+      collector: 'QR Scanner'
+    });
   };
 
   const handleDrop = (e: React.DragEvent) => {

@@ -21,8 +21,6 @@ const ProcessingForm: React.FC = () => {
 
   const [formData, setFormData] = useState({
     batchId: '',
-    parentEventId: '',
-    qrCode: '',
     inputWeight: '',
     method: '',
     temperature: '',
@@ -92,9 +90,7 @@ const ProcessingForm: React.FC = () => {
     console.log('QR Data received:', qrData);
     setFormData(prev => ({
       ...prev,
-      batchId: qrData.batchId || '',
-      parentEventId: qrData.eventId || '',
-      qrCode: JSON.stringify(qrData)
+      batchId: qrData.batchId || ''
     }));
     setShowQRScanner(false);
     setError('');
@@ -107,32 +103,16 @@ const ProcessingForm: React.FC = () => {
     setSuccess(false);
 
     try {
-      // Parse QR code if provided
-      let batchId = formData.batchId;
-      let parentEventId = formData.parentEventId;
-
-      if (formData.qrCode) {
-        try {
-          const qrData = qrService.parseQRData(formData.qrCode);
-          if (qrData.success) {
-            batchId = qrData.data.batchId;
-            parentEventId = qrData.data.eventId;
-          }
-        } catch (error) {
-          console.warn('QR parsing failed, using manual input:', error);
-        }
+      // Validate that we have the required batch ID
+      if (!formData.batchId) {
+        throw new Error('Batch ID is required. Please enter the batch ID or scan a QR code.');
       }
       
-      // Validate that we have the required IDs
-      if (!batchId || !parentEventId) {
-        throw new Error('Batch ID and Parent Event ID are required. Please scan QR code or enter manually.');
-      }
-      
-      // Verify the parent event exists
+      // Verify the batch exists
       try {
-        await blockchainService.getBatchInfo(parentEventId);
+        await blockchainService.getBatchInfo(formData.batchId);
       } catch (error) {
-        throw new Error(`Parent event ${parentEventId} not found. Please check the quality test QR code.`);
+        throw new Error(`Batch ${formData.batchId} not found. Please check the batch ID.`);
       }
 
       const processEventId = blockchainService.generateEventId('PROCESSING');
@@ -147,9 +127,8 @@ const ProcessingForm: React.FC = () => {
 
       // Create processing metadata
       const processData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: processEventId,
-        parentEventId,
         processor: formData.processorName,
         inputWeight: parseFloat(formData.inputWeight),
         method: formData.method,
@@ -174,9 +153,8 @@ const ProcessingForm: React.FC = () => {
 
       // Generate QR code
       const qrResult = await qrService.generateProcessingQR(
-        batchId,
+        formData.batchId,
         processEventId,
-        parentEventId,
         formData.processorName,
         formData.method
       );
@@ -187,9 +165,8 @@ const ProcessingForm: React.FC = () => {
 
       // Add event to blockchain
       const eventData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: processEventId,
-        parentEventId,
         processorName: formData.processorName,
         method: formData.method,
         temperature: formData.temperature ? parseFloat(formData.temperature) : null,
@@ -217,9 +194,8 @@ const ProcessingForm: React.FC = () => {
 
       setSuccess(true);
       setQrResult({
-        batchId,
+        batchId: formData.batchId,
         eventId: processEventId,
-        parentEventId,
         processing: {
           method: formData.method,
           temperature: formData.temperature ? parseFloat(formData.temperature) : null,
@@ -234,8 +210,6 @@ const ProcessingForm: React.FC = () => {
       // Reset form
       setFormData({
         batchId: '',
-        parentEventId: '',
-        qrCode: '',
         inputWeight: '',
         method: '',
         temperature: '',
@@ -354,16 +328,17 @@ const ProcessingForm: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-purple-700 mb-2">
-                QR Code from Quality Test (auto-fills batch and parent event)
+                Batch ID *
               </label>
               <div className="space-y-2">
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    name="qrCode"
-                    value={formData.qrCode}
+                    name="batchId"
+                    value={formData.batchId}
                     onChange={handleInputChange}
-                    placeholder="Paste QR code JSON data or scan QR image"
+                    required
+                    placeholder="Enter Batch ID (HERB-1234567890-1234)"
                     className="flex-1 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   />
                   <button
@@ -372,67 +347,12 @@ const ProcessingForm: React.FC = () => {
                     className="px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center space-x-2"
                   >
                     <Camera className="h-5 w-5" />
-                    <span>Scan</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (formData.qrCode) {
-                        try {
-                          const qrData = JSON.parse(formData.qrCode);
-                          setFormData(prev => ({
-                            ...prev,
-                            batchId: qrData.batchId || '',
-                            parentEventId: qrData.eventId || ''
-                          }));
-                        } catch (error) {
-                          setError('Invalid QR code format');
-                        }
-                      }
-                    }}
-                    className="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors"
-                  >
-                    <QrCode className="h-5 w-5" />
+                    <span>Scan QR</span>
                   </button>
                 </div>
-                {formData.qrCode && (
-                  <div className="p-3 bg-purple-50 rounded-lg">
-                    <p className="text-xs text-purple-700">
-                      QR Code detected - Batch and Parent Event will be auto-filled
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <div className="flex space-x-2">
-                <input
-                  type="text" 
-                  name="batchId"
-                  value={formData.batchId}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="HERB-1234567890-1234"
-                  className="flex-1 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-                <input
-                  type="text"
-                  name="parentEventId"
-                  value={formData.parentEventId}
-                  onChange={handleInputChange}
-                  required
-                  placeholder="TEST-1234567890-1234"
-                  className="flex-1 px-4 py-3 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 mt-1">
-                <div>
-                  <span className="font-medium">Batch ID *</span>
-                </div>
-                <div>
-                  <span className="font-medium">Parent Event ID *</span>
-                </div>
+                <p className="text-xs text-purple-600">
+                  Enter the Batch ID or scan any QR code from this batch
+                </p>
               </div>
             </div>
 

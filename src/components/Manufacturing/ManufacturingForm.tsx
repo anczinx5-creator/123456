@@ -92,32 +92,16 @@ const ManufacturingForm: React.FC = () => {
     setSuccess(false);
 
     try {
-      // Parse QR code if provided
-      let batchId = formData.batchId;
-      let parentEventId = formData.parentEventId;
-
-      if (formData.qrCode) {
-        try {
-          const qrData = qrService.parseQRData(formData.qrCode);
-          if (qrData.success) {
-            batchId = qrData.data.batchId;
-            parentEventId = qrData.data.eventId;
-          }
-        } catch (error) {
-          console.warn('QR parsing failed, using manual input:', error);
-        }
+      // Validate that we have the required batch ID
+      if (!formData.batchId) {
+        throw new Error('Batch ID is required. Please enter the batch ID or scan a QR code.');
       }
       
-      // Validate that we have the required IDs
-      if (!batchId || !parentEventId) {
-        throw new Error('Batch ID and Parent Event ID are required. Please scan QR code or enter manually.');
-      }
-      
-      // Verify the parent event exists
+      // Verify the batch exists
       try {
-        await blockchainService.getBatchInfo(parentEventId);
+        await blockchainService.getBatchInfo(formData.batchId);
       } catch (error) {
-        throw new Error(`Parent event ${parentEventId} not found. Please check the processing QR code.`);
+        throw new Error(`Batch ${formData.batchId} not found. Please check the batch ID.`);
       }
 
       const mfgEventId = blockchainService.generateEventId('MANUFACTURING');
@@ -132,9 +116,8 @@ const ManufacturingForm: React.FC = () => {
 
       // Create manufacturing metadata
       const mfgData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: mfgEventId,
-        parentEventId,
         manufacturer: formData.manufacturerName,
         lotNumber: formData.lotNumber,
         productName: formData.productName,
@@ -157,9 +140,8 @@ const ManufacturingForm: React.FC = () => {
 
       // Generate QR code
       const qrResult = await qrService.generateManufacturingQR(
-        batchId,
+        formData.batchId,
         mfgEventId,
-        parentEventId,
         formData.manufacturerName,
         formData.productName
       );
@@ -170,9 +152,8 @@ const ManufacturingForm: React.FC = () => {
 
       // Add event to blockchain
       const eventData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: mfgEventId,
-        parentEventId,
         manufacturerName: formData.manufacturerName,
         productName: formData.productName,
         productType: formData.productType,
@@ -201,9 +182,8 @@ const ManufacturingForm: React.FC = () => {
 
       setSuccess(true);
       setQrResult({
-        batchId,
+        batchId: formData.batchId,
         eventId: mfgEventId,
-        parentEventId,
         product: {
           lotNumber: formData.lotNumber,
           name: formData.productName,
@@ -220,8 +200,6 @@ const ManufacturingForm: React.FC = () => {
       // Reset form
       setFormData({
         batchId: '',
-        parentEventId: '',
-        qrCode: '',
         lotNumber: '',
         productName: '',
         productType: 'Herbal Product',

@@ -20,8 +20,6 @@ const QualityTestForm: React.FC = () => {
 
   const [formData, setFormData] = useState({
     batchId: '',
-    parentEventId: '',
-    qrCode: '',
     labName: '',
     moistureContent: '',
     purity: '',
@@ -90,9 +88,7 @@ const QualityTestForm: React.FC = () => {
     console.log('QR Data received:', qrData);
     setFormData(prev => ({
       ...prev,
-      batchId: qrData.batchId || '',
-      parentEventId: qrData.eventId || '',
-      qrCode: JSON.stringify(qrData)
+      batchId: qrData.batchId || ''
     }));
     setShowQRScanner(false);
     setError('');
@@ -105,32 +101,16 @@ const QualityTestForm: React.FC = () => {
     setSuccess(false);
 
     try {
-      // Parse QR code if provided
-      let batchId = formData.batchId;
-      let parentEventId = formData.parentEventId;
-
-      if (formData.qrCode) {
-        try {
-          const qrData = qrService.parseQRData(formData.qrCode);
-          if (qrData.success) {
-            batchId = qrData.data.batchId;
-            parentEventId = qrData.data.eventId;
-          }
-        } catch (error) {
-          console.warn('QR parsing failed, using manual input:', error);
-        }
+      // Validate that we have the required batch ID
+      if (!formData.batchId) {
+        throw new Error('Batch ID is required. Please enter the batch ID or scan the collection QR code.');
       }
       
-      // Validate that we have the required IDs
-      if (!batchId || !parentEventId) {
-        throw new Error('Batch ID and Parent Event ID are required. Please scan QR code or enter manually.');
-      }
-      
-      // Verify the parent event exists
+      // Verify the batch exists
       try {
-        await blockchainService.getBatchInfo(parentEventId);
+        await blockchainService.getBatchInfo(formData.batchId);
       } catch (error) {
-        throw new Error(`Parent event ${parentEventId} not found. Please check the collection QR code.`);
+        throw new Error(`Batch ${formData.batchId} not found. Please check the batch ID.`);
       }
 
       const testEventId = blockchainService.generateEventId('QUALITY_TEST');
@@ -145,9 +125,8 @@ const QualityTestForm: React.FC = () => {
 
       // Create test metadata
       const testData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: testEventId,
-        parentEventId,
         tester: formData.testerName,
         labName: formData.labName,
         moistureContent: parseFloat(formData.moistureContent),
@@ -169,9 +148,8 @@ const QualityTestForm: React.FC = () => {
 
       // Generate QR code
       const qrResult = await qrService.generateQualityTestQR(
-        batchId,
+        formData.batchId,
         testEventId,
-        parentEventId,
         formData.testerName
       );
 
@@ -181,9 +159,8 @@ const QualityTestForm: React.FC = () => {
 
       // Add event to blockchain
       const eventData = {
-        batchId,
+        batchId: formData.batchId,
         eventId: testEventId,
-        parentEventId,
         testerName: formData.testerName,
         moistureContent: parseFloat(formData.moistureContent),
         purity: parseFloat(formData.purity),
@@ -211,9 +188,8 @@ const QualityTestForm: React.FC = () => {
 
       setSuccess(true);
       setQrResult({
-        batchId,
+        batchId: formData.batchId,
         eventId: testEventId,
-        parentEventId,
         testResults: {
           moistureContent: parseFloat(formData.moistureContent),
           purity: parseFloat(formData.purity),
@@ -226,8 +202,6 @@ const QualityTestForm: React.FC = () => {
       // Reset form
       setFormData({
         batchId: '',
-        parentEventId: '',
-        qrCode: '',
         labName: '',
         moistureContent: '',
         purity: '',

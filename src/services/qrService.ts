@@ -51,24 +51,22 @@ class QRService {
     return await this.generateQR(data, `Collection-${batchId}`);
   }
 
-  async generateQualityTestQR(batchId: string, eventId: string, parentEventId: string, testerName: string) {
+  async generateQualityTestQR(batchId: string, eventId: string, testerName: string) {
     const data = {
       type: 'quality_test',
       batchId,
       eventId,
-      parentEventId,
       tester: testerName
     };
 
     return await this.generateQR(data, `QualityTest-${eventId}`);
   }
 
-  async generateProcessingQR(batchId: string, eventId: string, parentEventId: string, processorName: string, method: string) {
+  async generateProcessingQR(batchId: string, eventId: string, processorName: string, method: string) {
     const data = {
       type: 'processing',
       batchId,
       eventId,
-      parentEventId,
       processor: processorName,
       method
     };
@@ -76,12 +74,11 @@ class QRService {
     return await this.generateQR(data, `Processing-${eventId}`);
   }
 
-  async generateManufacturingQR(batchId: string, eventId: string, parentEventId: string, manufacturerName: string, productName: string) {
+  async generateManufacturingQR(batchId: string, eventId: string, manufacturerName: string, productName: string) {
     const data = {
       type: 'manufacturing',
       batchId,
       eventId,
-      parentEventId,
       manufacturer: manufacturerName,
       productName
     };

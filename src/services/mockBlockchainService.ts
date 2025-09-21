@@ -4,7 +4,6 @@ interface Event {
   eventId: string;
   eventType: 'COLLECTION' | 'QUALITY_TEST' | 'PROCESSING' | 'MANUFACTURING';
   batchId: string;
-  parentEventId?: string;
   timestamp: string;
   participant: string;
   organization: string;
